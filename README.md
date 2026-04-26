@@ -1,31 +1,31 @@
 # < CompilerHub >
 
-A powerful, multi-language online code editor and compiler built with React, TypeScript, and Vite.
+> A sleek, high-performance online compiler for the modern developer.
 
-## Features
+![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
 
-- **Multi-Language Support**: Write and run code in Python, JavaScript, C++, and Java.
-- **Monaco Editor**: High-performance code editor with syntax highlighting, IntelliSense, and bracket matching.
-- **Judge0 Integration**: Fast and reliable code execution using the Judge0 API.
-- **Theme Support**: Seamlessly switch between Dark and Light modes.
-- **Real-time Input**: Support for standard input (stdin) for interactive programs.
-- **Responsive Design**: Clean and modern UI with a resizable layout.
+### ⚡ Quick Start
 
-## Tech Stack
+```bash
+# Clone and fly
+git clone https://github.com/yashkhandelwal16/ComplierHub.git
+cd ComplierHub
+npm install
+npm run dev
+```
 
-- **Frontend**: React 19, TypeScript, Vite
-- **Styling**: Vanilla CSS with modern CSS variables
-- **Icons**: Lucide React
-- **Editor**: @monaco-editor/react
-- **Execution**: Judge0 API via Axios
+### 🚀 Key Features
+- **Instant Execution**: Python, JS, C++, Java via Judge0.
+- **Pro Editor**: Monaco Editor (VS Code core) integration.
+- **Glassmorphism UI**: Beautifully designed for Light & Dark modes.
+- **Real-time Input**: Full stdin support for interactive logic.
 
-## Getting Started
+---
 
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Run the dev server: `npm run dev`
-4. Build for production: `npm run build`
+### 🛠️ Built With
+![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black) ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript) ![Monaco](https://img.shields.io/badge/Monaco-0078d4?style=flat-square&logo=visual-studio-code) ![Judge0](https://img.shields.io/badge/Judge0-000000?style=flat-square) ![Lucide](https://img.shields.io/badge/Lucide-f87171?style=flat-square)
 
-## License
-
-© 2025 CompilerHub. All rights reserved.
+---
+© 2025 **CompilerHub**
