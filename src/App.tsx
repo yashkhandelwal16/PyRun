@@ -1,20 +1,20 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
-import { 
-  Play, 
-  Square, 
-  Settings, 
-  Monitor, 
-  X, 
-  Trash2, 
-  Wifi, 
-  Plus, 
-  Copy, 
-  Download, 
-  ChevronDown, 
-  Sun, 
+import {
+  Play,
+  Square,
+  Settings,
+  Monitor,
+  X,
+  Trash2,
+  Wifi,
+  Plus,
+  Copy,
+  Download,
+  ChevronDown,
+  Sun,
   Moon,
-  HelpCircle 
+  HelpCircle
 } from 'lucide-react';
 import axios from 'axios';
 import './App.css';
@@ -148,15 +148,17 @@ function App() {
   const [stdin, setStdin] = useState<string>('');
   const [output, setOutput] = useState<OutputLine[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [ws, setWs] = useState<WebSocket | null>(null);
   const [exitCode, setExitCode] = useState<number | null>(null);
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
   const [leftWidth, setLeftWidth] = useState(60); // percentage
+  const [outputFontSize, setOutputFontSize] = useState(13);
   const [isResizing, setIsResizing] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('compiler_theme');
     return saved !== 'light';
   });
-  
+
   const editorRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -170,11 +172,11 @@ function App() {
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const lang = LANGUAGES.find(l => l.id === e.target.value) || LANGUAGES[0];
     setSelectedLang(lang);
-    
+
     // Load from localStorage if exists, otherwise use snippet
     const savedCode = localStorage.getItem(`compiler_code_${lang.id}`);
     setCode(savedCode || lang.snippet);
-    
+
     setOutput([]);
     setExitCode(null);
   };
@@ -238,8 +240,18 @@ function App() {
     };
   }, [isResizing, resize, stopResizing]);
 
-  const runCode = async () => {
-    if (isRunning) return;
+  const stopCode = () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'stop' }));
+    }
+    setIsRunning(false);
+  };
+
+  const runCode = () => {
+    if (isRunning) {
+      stopCode();
+      return;
+    }
     
     setIsRunning(true);
     setExitCode(null);
@@ -247,106 +259,61 @@ function App() {
     
     setOutput([]);
     
-    try {
-      // Helper to encode string to base64 safely (handles UTF-8 characters like ₹)
-      const encodeBase64 = (str: string) => {
-        return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => {
-          return String.fromCharCode(parseInt(p1, 16));
-        }));
-      };
-
-      const response = await axios.post('https://ce.judge0.com/submissions?wait=true&base64_encoded=true', {
-        source_code: encodeBase64(code),
-        language_id: parseInt(selectedLang.pistonId),
-        stdin: encodeBase64(stdin),
-      }, {
-        timeout: 15000, // 15s timeout
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const { stdout, stderr, compile_output, status } = response.data;
-      
-      // Helper to decode base64 safely
-      const decodeBase64 = (str: string | null) => {
-        if (!str) return '';
-        try {
-          return decodeURIComponent(Array.prototype.map.call(atob(str), (c) => {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-          }).join(''));
-        } catch (e) {
-          return atob(str); // Fallback to plain atob if it's not a valid UTF-8 sequence
-        }
-      };
-
-      const decodedStdout = decodeBase64(stdout);
-      const decodedStderr = decodeBase64(stderr);
-      const decodedCompileOutput = decodeBase64(compile_output);
-
-      const newLines: OutputLine[] = [];
-      const stdinLines = stdin.split('\n');
-      let stdinIndex = 0;
-
-      if (decodedStdout) {
-        const stdoutLines = decodedStdout.split('\n');
-        // Limit output lines to 1000 to prevent browser crash
-        const limitedStdoutLines = stdoutLines.slice(0, 1000);
-        
-        limitedStdoutLines.forEach((line: string) => {
-          if (line.trim() !== '' || line === '') {
-            newLines.push({ timestamp, text: line, type: 'stdout' });
-            
-            const isPrompt = /[:?]\s*$/.test(line) || (line.toLowerCase().includes('enter') && line.length < 100);
-            
-            if (isPrompt && stdinIndex < stdinLines.length) {
-              newLines.push({ 
-                timestamp, 
-                text: stdinLines[stdinIndex], 
-                type: 'user-input' 
-              });
-              stdinIndex++;
-            }
-          }
-        });
-
-        if (stdoutLines.length > 1000) {
-          newLines.push({ timestamp, text: `... output truncated (${stdoutLines.length - 1000} more lines)`, type: 'system' });
-        }
-      }
-      
-      if (decodedStderr || decodedCompileOutput) {
-        const errorText = decodedStderr || decodedCompileOutput;
-        errorText.split('\n').filter((l: string) => l !== null).slice(0, 500).forEach((line: string) => {
-          newLines.push({ timestamp, text: line, type: 'stderr' });
-        });
-      }
-
-      if (newLines.length === 0 && status.id === 3) {
-        newLines.push({ timestamp, text: 'Program executed successfully (no output).', type: 'system' });
-      }
-
-      setOutput(newLines);
-      setExitCode(status.id === 3 ? 0 : status.id);
-    } catch (error: any) {
-      console.error('Execution Error:', error);
-      let errorMsg = 'Error: Could not connect to code execution server.';
-      
-      if (error.response) {
-        if (error.response.status === 429) {
-          errorMsg = 'Error: Server is busy (Rate limit exceeded). Please wait a few seconds and try again.';
-        } else if (error.response.status >= 500) {
-          errorMsg = 'Error: Code execution server is currently unavailable. Please try again later.';
-        }
-      } else if (error.code === 'ECONNABORTED') {
-        errorMsg = 'Error: Request timed out. Your code might be taking too long to run.';
-      }
-      
-      setOutput([{ timestamp, text: errorMsg, type: 'stderr' }]);
-    } finally {
-      setIsRunning(false);
+    if (ws) {
+      ws.close();
     }
+
+    const socket = new WebSocket('ws://localhost:8000/ws');
+    
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ type: 'run', language: selectedLang.id, code }));
+    };
+
+    socket.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'output') {
+        setOutput(prev => {
+          const lines = msg.data.split('\n');
+          const newOut = [...prev];
+          lines.forEach((l: string, i: number) => {
+             if (i === 0 && newOut.length > 0 && !newOut[newOut.length-1].text.endsWith('\n') && newOut[newOut.length-1].type === 'stdout') {
+                 newOut[newOut.length-1].text += l;
+             } else if (l !== '') {
+                 newOut.push({ timestamp, text: l, type: 'stdout' });
+             } else if (l === '' && i < lines.length - 1) {
+                 newOut.push({ timestamp, text: '', type: 'stdout' });
+             }
+          });
+          return newOut;
+        });
+      } else if (msg.type === 'error') {
+        setOutput(prev => [...prev, { timestamp, text: msg.data, type: 'stderr' }]);
+      } else if (msg.type === 'exit') {
+        setExitCode(msg.code);
+        setIsRunning(false);
+      }
+    };
+
+    socket.onerror = (error) => {
+      setOutput(prev => [...prev, { timestamp, text: 'WebSocket error: Could not connect to the Python backend on port 8000.\nMake sure you are running `npm run dev` which starts the FastAPI backend.', type: 'stderr' }]);
+      setIsRunning(false);
+    };
+
+    socket.onclose = () => {
+      setIsRunning(false);
+    };
+
+    setWs(socket);
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (ws) {
+        ws.close();
+      }
+    };
+  }, [ws]);
 
 
   const copyCode = () => {
@@ -377,9 +344,9 @@ function App() {
         <div className="header-right">
           <div className="language-dropdown-container">
             <Wifi size={14} color="#888" className="wifi-icon" />
-            <select 
-              className="language-select-overlay" 
-              value={selectedLang.id} 
+            <select
+              className="language-select-overlay"
+              value={selectedLang.id}
               onChange={handleLanguageChange}
             >
               {LANGUAGES.map(lang => (
@@ -391,8 +358,8 @@ function App() {
               <ChevronDown size={14} color="#888" />
             </div>
           </div>
-          <button 
-            className="icon-btn theme-toggle" 
+          <button
+            className="icon-btn theme-toggle"
             onClick={toggleTheme}
             title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
           >
@@ -411,18 +378,17 @@ function App() {
               <button className="icon-btn" title="New File" onClick={() => setCode('')}><Plus size={18} /></button>
               <button className="icon-btn" onClick={copyCode} title="Copy Code"><Copy size={18} /></button>
               <button className="icon-btn" onClick={downloadCode} title="Download Code"><Download size={18} /></button>
-              <button 
-                className="icon-btn run-icon-btn" 
+              <button
+                className="icon-btn run-icon-btn"
                 onClick={runCode}
-                disabled={isRunning}
-                title="Run Code"
-                style={{ color: isRunning ? '#888' : '#eab308' }}
+                title={isRunning ? "Stop Code" : "Run Code"}
+                style={{ color: isRunning ? '#ef4444' : '#eab308' }}
               >
                 {isRunning ? <Square size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
               </button>
             </div>
           </div>
-          
+
           <div className="editor-tabs">
             <div className="editor-tab active">
               <span className="tab-icon">{selectedLang.emoji}</span>
@@ -477,38 +443,68 @@ function App() {
         <div className="output-part" style={{ width: `${100 - leftWidth}%` }}>
           <div className="section-header">
             <h2 className="section-title">Output</h2>
-            <button className="icon-btn" onClick={() => setOutput([])} title="Clear Output"><Trash2 size={16} color="#666" /></button>
+            <div className="section-header-right">
+              <div className="font-size-control">
+                <Monitor size={14} />
+                <input
+                  type="range"
+                  min="10"
+                  max="24"
+                  value={outputFontSize}
+                  onChange={(e) => setOutputFontSize(parseInt(e.target.value))}
+                  className="font-slider"
+                  title="Output Font Size"
+                />
+              </div>
+              <button className="icon-btn clear-btn" onClick={() => setOutput([])} title="Clear Output">
+                Clear
+              </button>
+            </div>
           </div>
 
           <div className="output-body">
-            <div className="stdin-container">
-              <label className="stdin-label">Input for the program (optional):</label>
-              <textarea 
-                className="stdin-textarea"
-                placeholder="Enter input for your program..."
-                value={stdin}
-                onChange={(e) => setStdin(e.target.value)}
-              />
-              <p className="stdin-tip">Tip: Enter each input value on a new line.</p>
-            </div>
+            <div className="output-log" style={{ fontSize: `${outputFontSize}px` }}>
+              <div className="output-status-text">
+                {output.length === 0 && !isRunning && "Click Run to see output"}
+                {isRunning && "Running process..."}
+              </div>
 
-            <div className="output-status-text">
-              {output.length === 0 && !isRunning && "Click Run to execute your code"}
-              {isRunning && "Running..."}
-            </div>
-
-            <div className="output-log">
               {output.map((line, i) => (
                 <div key={i} className="output-line">
-                    <span className="output-text" style={{ 
-                      color: line.type === 'stderr' ? '#f87171' : line.type === 'system' ? 'var(--text-muted)' : line.type === 'user-input' ? 'var(--accent)' : 'var(--text-primary)',
-                      fontStyle: line.type === 'system' ? 'italic' : 'normal',
-                      fontWeight: line.type === 'user-input' ? '600' : '400'
-                    }}>
-                    {line.type === 'user-input' ? `> ${line.text}` : line.text}
+                  <span className="output-text" style={{
+                    color: line.type === 'stderr' ? '#f87171' : line.type === 'system' ? 'var(--text-muted)' : 'var(--text-primary)',
+                    fontStyle: line.type === 'system' ? 'italic' : 'normal',
+                    fontWeight: line.type === 'user-input' ? '600' : '400'
+                  }}>
+                    {line.text}
                   </span>
                 </div>
               ))}
+
+              {/* Only show input if running */}
+              {isRunning && (
+                <div className="terminal-input-wrapper">
+                  <span className="terminal-prompt">{'>'}</span>
+                  <input 
+                    className="integrated-stdin"
+                    placeholder="Type program input..."
+                    value={stdin}
+                    onChange={(e) => setStdin(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                          ws.send(JSON.stringify({ type: 'input', input: stdin + '\n' }));
+                          setOutput(prev => [...prev, { timestamp: '', text: stdin + '\n', type: 'user-input' }]);
+                          setStdin('');
+                        }
+                      }
+                    }}
+                    autoFocus
+                  />
+                </div>
+              )}
+
               {exitCode !== null && (
                 <div className="output-exit-code" style={{ color: exitCode === 0 ? '#22c55e' : '#ef4444' }}>
                   {exitCode === 0 ? '✓ Process finished successfully' : `⚠ Process finished with error (Exit code: ${exitCode})`}
@@ -521,16 +517,7 @@ function App() {
 
       {/* Footer */}
       <footer className="footer">
-        <div className="footer-left">
-          <p>© 2025 CompilerHub. All rights reserved.</p>
-        </div>
-        <div className="footer-right">
-          <div className="footer-status-item">
-            <Wifi size={12} color="#22c55e" />
-            <span>Connected</span>
-          </div>
-          <HelpCircle size={18} className="help-icon" />
-        </div>
+        <p>© 2026 CompilerHub. All rights reserved.</p>
       </footer>
     </div>
   );
