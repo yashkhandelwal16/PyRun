@@ -14,9 +14,10 @@ import {
   ChevronDown,
   Sun,
   Moon,
-  HelpCircle
+  HelpCircle,
+  FileCode2
 } from 'lucide-react';
-import axios from 'axios';
+import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
 
 interface Language {
@@ -133,6 +134,34 @@ class Engine {
         System.out.println("Hello, World!");
     }
 }`,
+  },
+  {
+    id: 'c',
+    name: 'C',
+    version: '10.2.0',
+    pistonId: '74',
+    emoji: 'C',
+    ext: 'c',
+    snippet: `#include <stdio.h>
+
+int main() {
+    printf("Initializing CompilerHub v1.0.4...\\n");
+    printf("Hello, World!\\n");
+    return 0;
+}`,
+  },
+  {
+    id: 'r',
+    name: 'R',
+    version: '4.1.1',
+    pistonId: '80',
+    emoji: '📊',
+    ext: 'R',
+    snippet: `name <- "CompilerHub"
+version <- "1.0.4"
+
+cat(sprintf("Initializing %s v%s...\\n", name, version))
+cat("Hello, World!\\n")`,
   }
 ];
 
@@ -142,18 +171,30 @@ interface OutputLine {
   type: 'stdout' | 'stderr' | 'system' | 'user-input';
 }
 
+interface FileTab {
+  id: string;
+  name: string;
+  content: string;
+  isMain: boolean;
+}
+
 function App() {
   const [selectedLang, setSelectedLang] = useState<Language>(LANGUAGES[0]);
-  const [code, setCode] = useState<string>(LANGUAGES[0].snippet);
+  const [files, setFiles] = useState<FileTab[]>([
+    { id: 'main', name: `main.${LANGUAGES[0].ext}`, content: LANGUAGES[0].snippet, isMain: true }
+  ]);
+  const [activeFileId, setActiveFileId] = useState<string>('main');
+
   const [stdin, setStdin] = useState<string>('');
   const [output, setOutput] = useState<OutputLine[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [exitCode, setExitCode] = useState<number | null>(null);
-  const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
   const [leftWidth, setLeftWidth] = useState(60); // percentage
-  const [outputFontSize, setOutputFontSize] = useState(13);
+  const [outputFontSize, setOutputFontSize] = useState(16);
+  const [editorFontSize, setEditorFontSize] = useState(14);
   const [isResizing, setIsResizing] = useState(false);
+  const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('compiler_theme');
     return saved !== 'light';
@@ -161,6 +202,15 @@ function App() {
 
   const editorRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const langDropdownRef = useRef<HTMLDivElement>(null);
+  const stdinRef = useRef<HTMLInputElement>(null);
+  const endOfMessagesRef = useRef<HTMLDivElement>(null);
+
+  const activeFile = files.find(f => f.id === activeFileId) || files[0];
+
+  useEffect(() => {
+    endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [output, isRunning]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
@@ -169,13 +219,30 @@ function App() {
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
-  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const lang = LANGUAGES.find(l => l.id === e.target.value) || LANGUAGES[0];
-    setSelectedLang(lang);
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target as Node)) {
+        setLangDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-    // Load from localStorage if exists, otherwise use snippet
-    const savedCode = localStorage.getItem(`compiler_code_${lang.id}`);
-    setCode(savedCode || lang.snippet);
+  const handleLanguageSelect = (lang: Language) => {
+    setSelectedLang(lang);
+    setLangDropdownOpen(false);
+
+    setFiles(prev => prev.map(f => {
+      if (f.isMain) {
+        return {
+          ...f,
+          name: `main.${lang.ext}`,
+          content: localStorage.getItem(`compiler_code_${lang.id}`) || lang.snippet
+        };
+      }
+      return f;
+    }));
 
     setOutput([]);
     setExitCode(null);
@@ -183,25 +250,55 @@ function App() {
 
   // Persist code to localStorage
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      localStorage.setItem(`compiler_code_${selectedLang.id}`, code);
-    }, 500); // Debounce 500ms
-    return () => clearTimeout(timeoutId);
-  }, [code, selectedLang.id]);
+    const mainFile = files.find(f => f.isMain);
+    if (mainFile) {
+      const timeoutId = setTimeout(() => {
+        localStorage.setItem(`compiler_code_${selectedLang.id}`, mainFile.content);
+      }, 500); // Debounce 500ms
+      return () => clearTimeout(timeoutId);
+    }
+  }, [files, selectedLang.id]);
 
   // Initial load
   useEffect(() => {
     const savedCode = localStorage.getItem(`compiler_code_${selectedLang.id}`);
     if (savedCode) {
-      setCode(savedCode);
+      setFiles(prev => prev.map(f => f.isMain ? { ...f, content: savedCode } : f));
     }
   }, []);
 
+  const updateActiveFileCode = (value: string) => {
+    setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: value } : f));
+  };
+
+  const addFile = () => {
+    const newId = `file-${Date.now()}`;
+    const newName = `untitled-${files.length}.${selectedLang.ext}`;
+    const newFile = { id: newId, name: newName, content: '', isMain: false };
+    
+    const activeIndex = files.findIndex(f => f.id === activeFileId);
+    const newFiles = [...files];
+    newFiles.splice(activeIndex + 1, 0, newFile); // Open to the right
+    
+    setFiles(newFiles);
+    setActiveFileId(newId);
+  };
+
+  const closeFile = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (id === 'main') return;
+    
+    const newFiles = files.filter(f => f.id !== id);
+    if (activeFileId === id) {
+      const closedIndex = files.findIndex(f => f.id === id);
+      const prevFile = files[closedIndex - 1] || files[0];
+      setActiveFileId(prevFile.id);
+    }
+    setFiles(newFiles);
+  };
+
   const handleEditorDidMount = (editor: any) => {
     editorRef.current = editor;
-    editor.onDidChangeCursorPosition((e: any) => {
-      setCursorPos({ line: e.position.lineNumber, col: e.position.column });
-    });
   };
 
   const startResizing = useCallback((e: React.MouseEvent) => {
@@ -266,7 +363,7 @@ function App() {
     const socket = new WebSocket('ws://localhost:8000/ws');
     
     socket.onopen = () => {
-      socket.send(JSON.stringify({ type: 'run', language: selectedLang.id, code }));
+      socket.send(JSON.stringify({ type: 'run', language: selectedLang.id, code: activeFile.content }));
     };
 
     socket.onmessage = (event) => {
@@ -306,7 +403,6 @@ function App() {
     setWs(socket);
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (ws) {
@@ -315,17 +411,16 @@ function App() {
     };
   }, [ws]);
 
-
   const copyCode = () => {
-    navigator.clipboard.writeText(code);
+    navigator.clipboard.writeText(activeFile.content);
   };
 
   const downloadCode = () => {
-    const blob = new Blob([code], { type: 'text/plain' });
+    const blob = new Blob([activeFile.content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `main.${selectedLang.ext}`;
+    a.download = activeFile.name;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -342,22 +437,48 @@ function App() {
           </div>
         </div>
         <div className="header-right">
-          <div className="language-dropdown-container">
-            <Wifi size={14} color="#888" className="wifi-icon" />
-            <select
-              className="language-select-overlay"
-              value={selectedLang.id}
-              onChange={handleLanguageChange}
+          
+          <div className="language-selector" ref={langDropdownRef}>
+            <div 
+              className="language-selector-button" 
+              onClick={() => setLangDropdownOpen(!langDropdownOpen)}
             >
-              {LANGUAGES.map(lang => (
-                <option key={lang.id} value={lang.id}>{lang.name}</option>
-              ))}
-            </select>
-            <div className="language-display">
-              <span>{selectedLang.name}</span>
-              <ChevronDown size={14} color="#888" />
+              <span className="lang-emoji">{selectedLang.emoji}</span>
+              <span className="lang-name">{selectedLang.name}</span>
+              <ChevronDown size={16} className={`dropdown-arrow ${langDropdownOpen ? 'open' : ''}`} />
             </div>
+            
+            <AnimatePresence>
+              {langDropdownOpen && (
+                <motion.div 
+                  className="language-dropdown-menu"
+                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  transition={{ duration: 0.15, ease: 'easeOut' }}
+                >
+                  <div className="dropdown-header">Select Language</div>
+                  <div className="dropdown-list">
+                    {LANGUAGES.map(lang => (
+                      <div 
+                        key={lang.id} 
+                        className={`language-option ${selectedLang.id === lang.id ? 'selected' : ''}`}
+                        onClick={() => handleLanguageSelect(lang)}
+                      >
+                        <span className="lang-emoji">{lang.emoji}</span>
+                        <div className="lang-info">
+                          <span className="lang-name">{lang.name}</span>
+                          <span className="lang-version">{lang.version}</span>
+                        </div>
+                        {selectedLang.id === lang.id && <div className="selected-indicator" />}
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
+
           <button
             className="icon-btn theme-toggle"
             onClick={toggleTheme}
@@ -375,7 +496,19 @@ function App() {
           <div className="section-header">
             <h2 className="section-title">Editor</h2>
             <div className="action-icons">
-              <button className="icon-btn" title="New File" onClick={() => setCode('')}><Plus size={18} /></button>
+              <div className="font-size-control">
+                <Monitor size={14} />
+                <input
+                  type="range"
+                  min="10"
+                  max="24"
+                  value={editorFontSize}
+                  onChange={(e) => setEditorFontSize(parseInt(e.target.value))}
+                  className="font-slider"
+                  title="Editor Font Size"
+                />
+              </div>
+              <button className="icon-btn add-tab-btn" title="New File" onClick={addFile}><Plus size={18} /></button>
               <button className="icon-btn" onClick={copyCode} title="Copy Code"><Copy size={18} /></button>
               <button className="icon-btn" onClick={downloadCode} title="Download Code"><Download size={18} /></button>
               <button
@@ -390,23 +523,39 @@ function App() {
           </div>
 
           <div className="editor-tabs">
-            <div className="editor-tab active">
-              <span className="tab-icon">{selectedLang.emoji}</span>
-              <span className="tab-name">main.{selectedLang.ext}</span>
-              <span className="tab-dot">•</span>
-            </div>
+            {files.map(file => (
+              <div 
+                key={file.id}
+                className={`editor-tab ${activeFileId === file.id ? 'active' : ''}`}
+                onClick={() => setActiveFileId(file.id)}
+              >
+                <span className="tab-icon">
+                  {file.isMain ? selectedLang.emoji : <FileCode2 size={14} />}
+                </span>
+                <span className="tab-name">{file.name}</span>
+                {!file.isMain && (
+                  <button 
+                    className="tab-close-btn" 
+                    onClick={(e) => closeFile(e, file.id)}
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+                {activeFileId === file.id && <span className="tab-indicator"></span>}
+              </div>
+            ))}
           </div>
 
           <div className="editor-wrapper">
             <Editor
               height="100%"
               language={selectedLang.id === 'cpp' ? 'cpp' : selectedLang.id}
-              value={code}
+              value={activeFile.content}
               theme={isDarkMode ? "vs-dark" : "light"}
-              onChange={(value) => setCode(value || '')}
+              onChange={(value) => updateActiveFileCode(value || '')}
               onMount={handleEditorDidMount}
               options={{
-                fontSize: 14,
+                fontSize: editorFontSize,
                 fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                 minimap: { enabled: false },
                 scrollbar: {
@@ -442,7 +591,7 @@ function App() {
         {/* Output Part */}
         <div className="output-part" style={{ width: `${100 - leftWidth}%` }}>
           <div className="section-header">
-            <h2 className="section-title">Output</h2>
+            <h2 className="section-title">Terminal Output</h2>
             <div className="section-header-right">
               <div className="font-size-control">
                 <Monitor size={14} />
@@ -463,7 +612,18 @@ function App() {
           </div>
 
           <div className="output-body">
-            <div className="output-log" style={{ fontSize: `${outputFontSize}px` }}>
+            <div 
+              className="output-log" 
+              style={{ fontSize: `${outputFontSize}px` }}
+              onClick={() => {
+                const selection = window.getSelection();
+                if (selection && selection.toString().length > 0) return; // Prevent focus if user is selecting text
+                
+                if (isRunning && stdinRef.current) {
+                  stdinRef.current.focus();
+                }
+              }}
+            >
               <div className="output-status-text">
                 {output.length === 0 && !isRunning && "Click Run to see output"}
                 {isRunning && "Running process..."}
@@ -481,13 +641,11 @@ function App() {
                 </div>
               ))}
 
-              {/* Only show input if running */}
               {isRunning && (
-                <div className="terminal-input-wrapper">
-                  <span className="terminal-prompt">{'>'}</span>
+                <div className="output-line seamless-input-wrapper" style={{ display: 'flex' }}>
                   <input 
-                    className="integrated-stdin"
-                    placeholder="Type program input..."
+                    ref={stdinRef}
+                    className="seamless-stdin"
                     value={stdin}
                     onChange={(e) => setStdin(e.target.value)}
                     onKeyDown={(e) => {
@@ -510,6 +668,7 @@ function App() {
                   {exitCode === 0 ? '✓ Process finished successfully' : `⚠ Process finished with error (Exit code: ${exitCode})`}
                 </div>
               )}
+              <div ref={endOfMessagesRef} />
             </div>
           </div>
         </div>

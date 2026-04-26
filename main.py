@@ -7,6 +7,33 @@ import re
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+def format_error_message(err_str: str, language: str) -> str:
+    # Python
+    if language == "python":
+        if 'ModuleNotFoundError' in err_str or 'ImportError' in err_str:
+            match = re.search(r"No module named '([^']+)'", err_str)
+            if match:
+                return f"\n⚠️ Required dependency is not available in this environment\n📦 Missing package: {match.group(1)}\n💡 Suggestion: Run locally or install dependencies\n\nOriginal Error:\n{err_str}"
+    # Node.js
+    elif language == "javascript":
+        if "Error: Cannot find module" in err_str:
+            match = re.search(r"Cannot find module '([^']+)'", err_str)
+            if match:
+                return f"\n⚠️ Required dependency is not available in this environment\n📦 Missing package: {match.group(1)}\n💡 Suggestion: Run locally or install dependencies\n\nOriginal Error:\n{err_str}"
+    # C/C++
+    elif language in ["c", "cpp"]:
+        if "fatal error:" in err_str and "No such file or directory" in err_str:
+            match = re.search(r"fatal error: (.*?): No such file", err_str)
+            if match:
+                return f"\n⚠️ Required dependency is not available in this environment\n📦 Missing package: {match.group(1)}\n💡 Suggestion: Run locally or install dependencies\n\nOriginal Error:\n{err_str}"
+    # Java
+    elif language == "java":
+        if "error: package" in err_str and "does not exist" in err_str:
+            match = re.search(r"error: package (.*?) does not exist", err_str)
+            if match:
+                return f"\n⚠️ Required dependency is not available in this environment\n📦 Missing package: {match.group(1)}\n💡 Suggestion: Run locally or install dependencies\n\nOriginal Error:\n{err_str}"
+    return err_str
+
 app = FastAPI()
 
 app.add_middleware(
@@ -48,30 +75,96 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Generate temp file
                 temp_dir = tempfile.gettempdir()
                 filename = f"code_{uuid.uuid4().hex}"
+                files_to_cleanup = []
 
-                if language == "python":
-                    temp_file_path = os.path.join(temp_dir, f"{filename}.py")
-                    with open(temp_file_path, "w", encoding="utf-8") as f:
-                        f.write(code)
-                    # Use -u for unbuffered output
-                    cmd = ["python", "-u", temp_file_path]
-                elif language == "javascript":
-                    temp_file_path = os.path.join(temp_dir, f"{filename}.js")
-                    with open(temp_file_path, "w", encoding="utf-8") as f:
-                        f.write(code)
-                    cmd = ["node", temp_file_path]
-                else:
-                    await websocket.send_json({"type": "error", "data": f"Language {language} not supported yet.\n"})
+                try:
+                    if language == "python":
+                        temp_file_path = os.path.join(temp_dir, f"{filename}.py")
+                        with open(temp_file_path, "w", encoding="utf-8") as f:
+                            f.write(code)
+                        files_to_cleanup.append(temp_file_path)
+                        cmd = ["python", "-u", temp_file_path]
+                    elif language == "javascript":
+                        temp_file_path = os.path.join(temp_dir, f"{filename}.js")
+                        with open(temp_file_path, "w", encoding="utf-8") as f:
+                            f.write(code)
+                        files_to_cleanup.append(temp_file_path)
+                        cmd = ["node", temp_file_path]
+                    elif language == "cpp":
+                        temp_file_path = os.path.join(temp_dir, f"{filename}.cpp")
+                        exe_path = os.path.join(temp_dir, f"{filename}.exe" if os.name == 'nt' else filename)
+                        with open(temp_file_path, "w", encoding="utf-8") as f:
+                            f.write(code)
+                        files_to_cleanup.extend([temp_file_path, exe_path])
+                        compile_process = await asyncio.create_subprocess_exec(
+                            "g++", temp_file_path, "-o", exe_path,
+                            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                        )
+                        stdout, stderr = await compile_process.communicate()
+                        if compile_process.returncode != 0:
+                            err_msg = format_error_message(stderr.decode('utf-8'), language)
+                            await websocket.send_json({"type": "error", "data": err_msg})
+                            await websocket.send_json({"type": "exit", "code": compile_process.returncode})
+                            continue
+                        cmd = [exe_path]
+                    elif language == "c":
+                        temp_file_path = os.path.join(temp_dir, f"{filename}.c")
+                        exe_path = os.path.join(temp_dir, f"{filename}.exe" if os.name == 'nt' else filename)
+                        with open(temp_file_path, "w", encoding="utf-8") as f:
+                            f.write(code)
+                        files_to_cleanup.extend([temp_file_path, exe_path])
+                        compile_process = await asyncio.create_subprocess_exec(
+                            "gcc", temp_file_path, "-o", exe_path,
+                            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                        )
+                        stdout, stderr = await compile_process.communicate()
+                        if compile_process.returncode != 0:
+                            err_msg = format_error_message(stderr.decode('utf-8'), language)
+                            await websocket.send_json({"type": "error", "data": err_msg})
+                            await websocket.send_json({"type": "exit", "code": compile_process.returncode})
+                            continue
+                        cmd = [exe_path]
+                    elif language == "java":
+                        java_temp_dir = tempfile.mkdtemp()
+                        temp_file_path = os.path.join(java_temp_dir, "Main.java")
+                        class_file_path = os.path.join(java_temp_dir, "Main.class")
+                        with open(temp_file_path, "w", encoding="utf-8") as f:
+                            f.write(code)
+                        files_to_cleanup.extend([temp_file_path, class_file_path, java_temp_dir])
+                        compile_process = await asyncio.create_subprocess_exec(
+                            "javac", temp_file_path,
+                            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                        )
+                        stdout, stderr = await compile_process.communicate()
+                        if compile_process.returncode != 0:
+                            err_msg = format_error_message(stderr.decode('utf-8'), language)
+                            await websocket.send_json({"type": "error", "data": err_msg})
+                            await websocket.send_json({"type": "exit", "code": compile_process.returncode})
+                            continue
+                        cmd = ["java", "-cp", java_temp_dir, "Main"]
+                    elif language == "r":
+                        temp_file_path = os.path.join(temp_dir, f"{filename}.R")
+                        with open(temp_file_path, "w", encoding="utf-8") as f:
+                            f.write(code)
+                        files_to_cleanup.append(temp_file_path)
+                        cmd = ["Rscript", temp_file_path]
+                    else:
+                        await websocket.send_json({"type": "error", "data": f"Language {language} not supported yet.\n"})
+                        await websocket.send_json({"type": "exit", "code": 1})
+                        continue
+
+                    # No timeout logic -> Unlimited Execution Time as requested!
+                    process = await asyncio.create_subprocess_exec(
+                        *cmd,
+                        stdin=asyncio.subprocess.PIPE,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE
+                    )
+                except FileNotFoundError as e:
+                    tool_name = str(e).split()[-1]
+                    await websocket.send_json({"type": "error", "data": f"\n⚠️ Command not found: {tool_name}\nMake sure the compiler/runtime for {language} is installed and added to your system PATH.\n"})
                     await websocket.send_json({"type": "exit", "code": 1})
                     continue
-
-                # No timeout logic -> Unlimited Execution Time as requested!
-                process = await asyncio.create_subprocess_exec(
-                    *cmd,
-                    stdin=asyncio.subprocess.PIPE,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
-                )
 
                 asyncio.create_task(read_stream(process.stdout, "output"))
                 
@@ -82,13 +175,8 @@ async def websocket_endpoint(websocket: WebSocket):
                             if not chunk:
                                 break
                             err_str = chunk.decode('utf-8')
-                            if 'ModuleNotFoundError' in err_str or 'ImportError' in err_str:
-                                match = re.search(r"No module named '([^']+)'", err_str)
-                                module_name = match.group(1) if match else 'unknown'
-                                custom_err = f"\n⚠️ This program requires external dependencies that are not available in this environment.\n📦 Missing package: {module_name}\n💡 Suggestion: Try running locally or install required packages.\n\nOriginal Error:\n{err_str}"
-                                await websocket.send_json({"type": "error", "data": custom_err})
-                            else:
-                                await websocket.send_json({"type": "error", "data": err_str})
+                            formatted_err = format_error_message(err_str, language)
+                            await websocket.send_json({"type": "error", "data": formatted_err})
                     except Exception:
                         pass
                 
@@ -97,9 +185,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 async def wait_for_exit():
                     code = await process.wait()
                     await websocket.send_json({"type": "exit", "code": code})
-                    if temp_file_path and os.path.exists(temp_file_path):
-                        try: os.remove(temp_file_path)
-                        except: pass
+                    for p in files_to_cleanup:
+                        if os.path.exists(p):
+                            try:
+                                if os.path.isdir(p):
+                                    os.rmdir(p)
+                                else:
+                                    os.remove(p)
+                            except: pass
                 
                 asyncio.create_task(wait_for_exit())
 
@@ -116,8 +209,13 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         if process and process.returncode is None:
             process.terminate()
-        if temp_file_path and os.path.exists(temp_file_path):
-            try: os.remove(temp_file_path)
-            except: pass
+        try:
+            for p in files_to_cleanup:
+                if os.path.exists(p):
+                    if os.path.isdir(p):
+                        os.rmdir(p)
+                    else:
+                        os.remove(p)
+        except: pass
     except Exception as e:
         print("WS Error:", e)
