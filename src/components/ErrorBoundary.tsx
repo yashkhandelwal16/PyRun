@@ -26,11 +26,11 @@ class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div style={{ 
-          height: '100vh', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
+        <div style={{
+          height: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
           justifyContent: 'center',
           background: '#000',
           color: '#fff',
@@ -42,7 +42,7 @@ class ErrorBoundary extends Component<Props, State> {
           <p style={{ color: '#888', marginBottom: '20px' }}>
             The application crashed. This might be due to a memory issue or a connection error.
           </p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             style={{
               padding: '10px 20px',
@@ -57,10 +57,10 @@ class ErrorBoundary extends Component<Props, State> {
             Reload Application
           </button>
           {import.meta.env.DEV && (
-            <pre style={{ 
-              marginTop: '20px', 
-              padding: '10px', 
-              background: '#111', 
+            <pre style={{
+              marginTop: '20px',
+              padding: '10px',
+              background: '#111',
               borderRadius: '5px',
               maxWidth: '100%',
               overflow: 'auto',

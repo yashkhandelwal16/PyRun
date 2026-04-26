@@ -13,6 +13,7 @@ import {
   Download, 
   ChevronDown, 
   Sun, 
+  Moon,
   HelpCircle 
 } from 'lucide-react';
 import axios from 'axios';
@@ -151,9 +152,20 @@ function App() {
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
   const [leftWidth, setLeftWidth] = useState(60); // percentage
   const [isResizing, setIsResizing] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('compiler_theme');
+    return saved !== 'light';
+  });
   
   const editorRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+    localStorage.setItem('compiler_theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
+
+  const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const lang = LANGUAGES.find(l => l.id === e.target.value) || LANGUAGES[0];
@@ -378,7 +390,13 @@ function App() {
               <ChevronDown size={14} color="#888" />
             </div>
           </div>
-          <button className="icon-btn theme-toggle"><Sun size={18} /></button>
+          <button 
+            className="icon-btn theme-toggle" 
+            onClick={toggleTheme}
+            title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
         </div>
       </header>
 
@@ -417,7 +435,7 @@ function App() {
               height="100%"
               language={selectedLang.id === 'cpp' ? 'cpp' : selectedLang.id}
               value={code}
-              theme="vs-dark"
+              theme={isDarkMode ? "vs-dark" : "light"}
               onChange={(value) => setCode(value || '')}
               onMount={handleEditorDidMount}
               options={{
@@ -481,11 +499,11 @@ function App() {
             <div className="output-log">
               {output.map((line, i) => (
                 <div key={i} className="output-line">
-                  <span className="output-text" style={{ 
-                    color: line.type === 'stderr' ? '#f87171' : line.type === 'system' ? '#888' : line.type === 'user-input' ? '#eab308' : '#e0e0e0',
-                    fontStyle: line.type === 'system' ? 'italic' : 'normal',
-                    fontWeight: line.type === 'user-input' ? '600' : '400'
-                  }}>
+                    <span className="output-text" style={{ 
+                      color: line.type === 'stderr' ? '#f87171' : line.type === 'system' ? 'var(--text-muted)' : line.type === 'user-input' ? 'var(--accent)' : 'var(--text-primary)',
+                      fontStyle: line.type === 'system' ? 'italic' : 'normal',
+                      fontWeight: line.type === 'user-input' ? '600' : '400'
+                    }}>
                     {line.type === 'user-input' ? `> ${line.text}` : line.text}
                   </span>
                 </div>
