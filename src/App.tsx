@@ -50,7 +50,7 @@ class Engine:
         print(f"Initializing {self.name} v{self.version}...")
         print("Hello, World!")
 
-app = Engine("CompilerLite")
+app = Engine("CompilerHub")
 app.execute()`,
   },
   {
@@ -73,7 +73,7 @@ class Engine {
   }
 }
 
-const app = new Engine("CompilerLite");
+const app = new Engine("CompilerHub");
 app.execute();`,
   },
   {
@@ -101,7 +101,7 @@ private:
 };
 
 int main() {
-    Engine app("CompilerLite");
+    Engine app("CompilerHub");
     app.execute();
     return 0;
 }`,
@@ -115,7 +115,7 @@ int main() {
     ext: 'java',
     snippet: `public class Main {
     public static void main(String[] args) {
-        Engine app = new Engine("CompilerLite");
+        Engine app = new Engine("CompilerHub");
         app.execute();
     }
 }
@@ -370,7 +370,8 @@ function App() {
         <div className="header-left">
           <div className="logo-container">
             <span className="logo-icon">{'<'}</span>
-            <span className="logo-text">CompilerLite</span>
+            <span className="logo-text">CompilerHub</span>
+            <span className="logo-icon">{'>'}</span>
           </div>
         </div>
         <div className="header-right">
@@ -521,7 +522,7 @@ function App() {
       {/* Footer */}
       <footer className="footer">
         <div className="footer-left">
-          <p>© 2025 CompilerLite. All rights reserved.</p>
+          <p>© 2025 CompilerHub. All rights reserved.</p>
         </div>
         <div className="footer-right">
           <div className="footer-status-item">
