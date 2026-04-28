@@ -281,9 +281,9 @@ function App() {
       <header className="header">
         <div className="header-left">
           <div className="logo-container">
-            <span className="logo-icon">{'<'}</span>
-            <span className="logo-text">CompilerHub</span>
-            <span className="logo-icon">{'>'}</span>
+            <span className="logo-icon">{'>>>'}</span>
+            <span className="logo-text">PyRun</span>
+            <span className="logo-icon">{'<<<'}</span>
           </div>
         </div>
         <div className="header-right">

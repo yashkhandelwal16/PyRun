@@ -42,69 +42,117 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  padding: 0 28px;
   background: var(--bg-primary);
-  border-bottom: 1px solid var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+  z-index: 10;
 }
 
 .logo-container {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .logo-icon {
-  font-size: 24px;
-  font-weight: 300;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--accent);
+  opacity: 0.85;
+  letter-spacing: -1px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
 .logo-text {
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, var(--text-primary) 60%, var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
 }
 
-/* Python Badge (static, no dropdown) */
+/* ── Premium Python Badge ── */
 .python-badge {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--bg-secondary);
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
+  gap: 10px;
+  padding: 7px 14px 7px 10px;
+  border-radius: 10px;
+  /* Python blue tint border */
+  background: linear-gradient(var(--bg-secondary), var(--bg-secondary)) padding-box,
+              linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%) border-box;
+  border: 1.5px solid transparent;
   user-select: none;
+  position: relative;
+  transition: box-shadow 0.25s ease;
+}
+
+.python-badge:hover {
+  box-shadow: 0 0 18px -4px rgba(59, 130, 246, 0.35);
+}
+
+/* Live indicator dot */
+.python-badge::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 6px #22c55e;
+  animation: pulse-dot 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.7); }
 }
 
 .lang-emoji {
-  font-size: 16px;
+  font-size: 20px;
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.lang-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.4));
 }
 
 .lang-info {
   display: flex;
   flex-direction: column;
+  gap: 1px;
+  padding-right: 10px; /* room for the dot */
+}
+
+.lang-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
+  line-height: 1.2;
 }
 
 .lang-version {
   font-size: 10px;
-  color: var(--text-muted);
+  font-weight: 500;
+  color: #3B82F6;
+  letter-spacing: 0.03em;
   line-height: 1.2;
+}
+
+[data-theme="light"] .lang-version {
+  color: #1D4ED8;
 }
 
 .theme-toggle {
