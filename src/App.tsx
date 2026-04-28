@@ -3,18 +3,13 @@ import Editor from '@monaco-editor/react';
 import {
   Play,
   Square,
-  Settings,
   Monitor,
   X,
-  Trash2,
-  Wifi,
   Plus,
   Copy,
   Download,
-  ChevronDown,
   Sun,
   Moon,
-  HelpCircle,
   FileCode2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,15 +25,14 @@ interface Language {
   ext: string;
 }
 
-const LANGUAGES: Language[] = [
-  {
-    id: 'python',
-    name: 'Python',
-    version: '3.12.5',
-    pistonId: '100',
-    emoji: '🐍',
-    ext: 'py',
-    snippet: `import math
+const PYTHON: Language = {
+  id: 'python',
+  name: 'Python',
+  version: '3.12.5',
+  pistonId: '100',
+  emoji: '🐍',
+  ext: 'py',
+  snippet: `import math
 import random
 
 # Define a class for the core logic
@@ -53,117 +47,9 @@ class Engine:
 
 app = Engine("CompilerHub")
 app.execute()`,
-  },
-  {
-    id: 'javascript',
-    name: 'JavaScript',
-    version: '20.17.0',
-    pistonId: '97',
-    emoji: 'js',
-    ext: 'js',
-    snippet: `// Define a class for the core logic
-class Engine {
-  constructor(name) {
-    this.name = name;
-    this.version = "1.0.4";
-  }
-
-  execute() {
-    console.log(\`Initializing \${this.name} v\${this.version}...\`);
-    console.log("Hello, World!");
-  }
-}
-
-const app = new Engine("CompilerHub");
-app.execute();`,
-  },
-  {
-    id: 'cpp',
-    name: 'C++',
-    version: '14.1.0',
-    pistonId: '105',
-    emoji: 'C+',
-    ext: 'cpp',
-    snippet: `#include <iostream>
-#include <string>
-
-class Engine {
-public:
-    Engine(std::string name) : name(name), version("1.0.4") {}
-    
-    void execute() {
-        std::cout << "Initializing " << name << " v" << version << "..." << std::endl;
-        std::cout << "Hello, World!" << std::endl;
-    }
-
-private:
-    std::string name;
-    std::string version;
 };
 
-int main() {
-    Engine app("CompilerHub");
-    app.execute();
-    return 0;
-}`,
-  },
-  {
-    id: 'java',
-    name: 'Java',
-    version: '17.0.6',
-    pistonId: '91',
-    emoji: '☕',
-    ext: 'java',
-    snippet: `public class Main {
-    public static void main(String[] args) {
-        Engine app = new Engine("CompilerHub");
-        app.execute();
-    }
-}
-
-class Engine {
-    private String name;
-    private String version = "1.0.4";
-
-    public Engine(String name) {
-        this.name = name;
-    }
-
-    public void execute() {
-        System.out.println("Initializing " + name + " v" + version + "...");
-        System.out.println("Hello, World!");
-    }
-}`,
-  },
-  {
-    id: 'c',
-    name: 'C',
-    version: '10.2.0',
-    pistonId: '74',
-    emoji: 'C',
-    ext: 'c',
-    snippet: `#include <stdio.h>
-
-int main() {
-    printf("Initializing CompilerHub v1.0.4...\\n");
-    printf("Hello, World!\\n");
-    return 0;
-}`,
-  },
-  {
-    id: 'r',
-    name: 'R',
-    version: '4.1.1',
-    pistonId: '80',
-    emoji: '📊',
-    ext: 'R',
-    snippet: `name <- "CompilerHub"
-version <- "1.0.4"
-
-cat(sprintf("Initializing %s v%s...\\n", name, version))
-cat("Hello, World!\\n")`,
-  }
-];
+const LANGUAGES: Language[] = [PYTHON];
 
 interface OutputLine {
   timestamp: string;
@@ -179,9 +65,9 @@ interface FileTab {
 }
 
 function App() {
-  const [selectedLang, setSelectedLang] = useState<Language>(LANGUAGES[0]);
+  const [selectedLang] = useState<Language>(PYTHON);
   const [files, setFiles] = useState<FileTab[]>([
-    { id: 'main', name: `main.${LANGUAGES[0].ext}`, content: LANGUAGES[0].snippet, isMain: true }
+    { id: 'main', name: `main.${PYTHON.ext}`, content: PYTHON.snippet, isMain: true }
   ]);
   const [activeFileId, setActiveFileId] = useState<string>('main');
 
@@ -194,7 +80,6 @@ function App() {
   const [outputFontSize, setOutputFontSize] = useState(16);
   const [editorFontSize, setEditorFontSize] = useState(14);
   const [isResizing, setIsResizing] = useState(false);
-  const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('compiler_theme');
     return saved !== 'light';
@@ -202,7 +87,6 @@ function App() {
 
   const editorRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const langDropdownRef = useRef<HTMLDivElement>(null);
   const stdinRef = useRef<HTMLInputElement>(null);
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
 
@@ -218,54 +102,6 @@ function App() {
   }, [isDarkMode]);
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target as Node)) {
-        setLangDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const handleLanguageSelect = (lang: Language) => {
-    setSelectedLang(lang);
-    setLangDropdownOpen(false);
-
-    setFiles(prev => prev.map(f => {
-      if (f.isMain) {
-        return {
-          ...f,
-          name: `main.${lang.ext}`,
-          content: localStorage.getItem(`compiler_code_${lang.id}`) || lang.snippet
-        };
-      }
-      return f;
-    }));
-
-    setOutput([]);
-    setExitCode(null);
-  };
-
-  // Persist code to localStorage
-  useEffect(() => {
-    const mainFile = files.find(f => f.isMain);
-    if (mainFile) {
-      const timeoutId = setTimeout(() => {
-        localStorage.setItem(`compiler_code_${selectedLang.id}`, mainFile.content);
-      }, 500); // Debounce 500ms
-      return () => clearTimeout(timeoutId);
-    }
-  }, [files, selectedLang.id]);
-
-  // Initial load
-  useEffect(() => {
-    const savedCode = localStorage.getItem(`compiler_code_${selectedLang.id}`);
-    if (savedCode) {
-      setFiles(prev => prev.map(f => f.isMain ? { ...f, content: savedCode } : f));
-    }
-  }, []);
 
   const updateActiveFileCode = (value: string) => {
     setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: value } : f));
@@ -437,46 +273,13 @@ function App() {
           </div>
         </div>
         <div className="header-right">
-          
-          <div className="language-selector" ref={langDropdownRef}>
-            <div 
-              className="language-selector-button" 
-              onClick={() => setLangDropdownOpen(!langDropdownOpen)}
-            >
-              <span className="lang-emoji">{selectedLang.emoji}</span>
-              <span className="lang-name">{selectedLang.name}</span>
-              <ChevronDown size={16} className={`dropdown-arrow ${langDropdownOpen ? 'open' : ''}`} />
+          {/* Static Python badge — no dropdown needed */}
+          <div className="python-badge">
+            <span className="lang-emoji">{PYTHON.emoji}</span>
+            <div className="lang-info">
+              <span className="lang-name">{PYTHON.name}</span>
+              <span className="lang-version">{PYTHON.version}</span>
             </div>
-            
-            <AnimatePresence>
-              {langDropdownOpen && (
-                <motion.div 
-                  className="language-dropdown-menu"
-                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  transition={{ duration: 0.15, ease: 'easeOut' }}
-                >
-                  <div className="dropdown-header">Select Language</div>
-                  <div className="dropdown-list">
-                    {LANGUAGES.map(lang => (
-                      <div 
-                        key={lang.id} 
-                        className={`language-option ${selectedLang.id === lang.id ? 'selected' : ''}`}
-                        onClick={() => handleLanguageSelect(lang)}
-                      >
-                        <span className="lang-emoji">{lang.emoji}</span>
-                        <div className="lang-info">
-                          <span className="lang-name">{lang.name}</span>
-                          <span className="lang-version">{lang.version}</span>
-                        </div>
-                        {selectedLang.id === lang.id && <div className="selected-indicator" />}
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
 
           <button
@@ -526,14 +329,15 @@ function App() {
             {files.map(file => (
               <div 
                 key={file.id}
-                className={`editor-tab ${activeFileId === file.id ? 'active' : ''}`}
+                className={`editor-tab ${activeFileId === file.id ? 'active' : ''} ${files.length > 1 ? 'closeable' : ''}`}
                 onClick={() => setActiveFileId(file.id)}
               >
                 <span className="tab-icon">
-                  {file.isMain ? selectedLang.emoji : <FileCode2 size={14} />}
+                  {file.isMain ? PYTHON.emoji : <FileCode2 size={14} />}
                 </span>
                 <span className="tab-name">{file.name}</span>
-                {!file.isMain && (
+                {/* Show close button only when there are multiple tabs AND it's not the main file */}
+                {!file.isMain && files.length > 1 && (
                   <button 
                     className="tab-close-btn" 
                     onClick={(e) => closeFile(e, file.id)}
