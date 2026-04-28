@@ -19,10 +19,10 @@
   --bg-editor: #ffffff;
   --bg-input: #f8f9fa;
   --border-color: #ced4da;
-  --text-primary: #212529;
-  --text-secondary: #495057;
-  --text-muted: #6c757d;
-  --text-dim: #495057;
+  --text-primary: #000000;
+  --text-secondary: #212529;
+  --text-muted: #495057;
+  --text-dim: #212529;
   --accent: #d97706;
 }
 
