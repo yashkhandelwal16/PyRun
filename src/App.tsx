@@ -502,7 +502,7 @@ function App() {
 
       {/* Footer */}
       <footer className="footer">
-        <p>© 2026 CompilerHub. All rights reserved.</p>
+        <p>© 2026 PyRun. All rights reserved.</p>
       </footer>
     </div>
   );
