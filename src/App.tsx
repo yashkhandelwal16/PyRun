@@ -74,8 +74,8 @@ function App() {
   const [stdin, setStdin] = useState<string>('');
   const [output, setOutput] = useState<OutputLine[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [ws, setWs] = useState<WebSocket | null>(null);
   const [exitCode, setExitCode] = useState<number | null>(null);
+  const wsRef = useRef<WebSocket | null>(null); // use ref so closures always see the live socket
   const [leftWidth, setLeftWidth] = useState(60); // percentage
   const [outputFontSize, setOutputFontSize] = useState(16);
   const [editorFontSize, setEditorFontSize] = useState(14);
@@ -174,30 +174,43 @@ function App() {
   }, [isResizing, resize, stopResizing]);
 
   const stopCode = () => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'stop' }));
+    const socket = wsRef.current;
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'stop' }));
+      socket.close();
     }
+    wsRef.current = null;
     setIsRunning(false);
   };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      wsRef.current?.close();
+      wsRef.current = null;
+    };
+  }, []);
 
   const runCode = () => {
     if (isRunning) {
       stopCode();
       return;
     }
-    
-    setIsRunning(true);
-    setExitCode(null);
-    const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    
-    setOutput([]);
-    
-    if (ws) {
-      ws.close();
+
+    // Close any existing socket first
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
     }
 
+    setIsRunning(true);
+    setExitCode(null);
+    setOutput([]);
+    const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
     const socket = new WebSocket('ws://localhost:8000/ws');
-    
+    wsRef.current = socket; // store immediately so input handler can use it right away
+
     socket.onopen = () => {
       socket.send(JSON.stringify({ type: 'run', language: selectedLang.id, code: activeFile.content }));
     };
@@ -209,13 +222,13 @@ function App() {
           const lines = msg.data.split('\n');
           const newOut = [...prev];
           lines.forEach((l: string, i: number) => {
-             if (i === 0 && newOut.length > 0 && !newOut[newOut.length-1].text.endsWith('\n') && newOut[newOut.length-1].type === 'stdout') {
-                 newOut[newOut.length-1].text += l;
-             } else if (l !== '') {
-                 newOut.push({ timestamp, text: l, type: 'stdout' });
-             } else if (l === '' && i < lines.length - 1) {
-                 newOut.push({ timestamp, text: '', type: 'stdout' });
-             }
+            if (i === 0 && newOut.length > 0 && !newOut[newOut.length - 1].text.endsWith('\n') && newOut[newOut.length - 1].type === 'stdout') {
+              newOut[newOut.length - 1].text += l;
+            } else if (l !== '') {
+              newOut.push({ timestamp, text: l, type: 'stdout' });
+            } else if (l === '' && i < lines.length - 1) {
+              newOut.push({ timestamp, text: '', type: 'stdout' });
+            }
           });
           return newOut;
         });
@@ -224,28 +237,29 @@ function App() {
       } else if (msg.type === 'exit') {
         setExitCode(msg.code);
         setIsRunning(false);
+        wsRef.current = null;
       }
     };
 
-    socket.onerror = (error) => {
-      setOutput(prev => [...prev, { timestamp, text: 'WebSocket error: Could not connect to the Python backend on port 8000.\nMake sure you are running `npm run dev` which starts the FastAPI backend.', type: 'stderr' }]);
+    socket.onerror = () => {
+      const ts = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      setOutput(prev => [...prev, {
+        timestamp: ts,
+        text: '\u26a0 WebSocket error: Could not connect to backend on port 8000.\nMake sure the FastAPI server is running (npm run dev starts it automatically).',
+        type: 'stderr'
+      }]);
       setIsRunning(false);
+      wsRef.current = null;
     };
 
     socket.onclose = () => {
-      setIsRunning(false);
+      // Only flip isRunning off if we weren\'t already stopped by an exit/error message
+      setIsRunning(prev => {
+        if (prev) return false;
+        return prev;
+      });
     };
-
-    setWs(socket);
   };
-
-  useEffect(() => {
-    return () => {
-      if (ws) {
-        ws.close();
-      }
-    };
-  }, [ws]);
 
   const copyCode = () => {
     navigator.clipboard.writeText(activeFile.content);
@@ -455,10 +469,18 @@ function App() {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        if (ws && ws.readyState === WebSocket.OPEN) {
-                          ws.send(JSON.stringify({ type: 'input', input: stdin + '\n' }));
-                          setOutput(prev => [...prev, { timestamp: '', text: stdin + '\n', type: 'user-input' }]);
+                        const socket = wsRef.current; // always read the live ref, never a stale closure
+                        if (socket && socket.readyState === WebSocket.OPEN) {
+                          socket.send(JSON.stringify({ type: 'input', input: stdin + '\n' }));
+                          setOutput(prev => [...prev, { timestamp: '', text: stdin, type: 'user-input' }]);
                           setStdin('');
+                        } else {
+                          // socket not ready — show a clear diagnostic instead of silently failing
+                          setOutput(prev => [...prev, {
+                            timestamp: '',
+                            text: '⚠ Input not sent: the process is no longer running.',
+                            type: 'stderr'
+                          }]);
                         }
                       }
                     }}
