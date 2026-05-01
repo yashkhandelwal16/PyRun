@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
+import backendConfig from './backend-config.json';
 
 interface Language {
   id: string;
@@ -253,7 +254,7 @@ function App() {
     setOutput([]);
     const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-    const backendHost = window.location.hostname;
+    const backendHost = window.location.hostname === 'localhost' ? 'localhost' : backendConfig.backendIp;
     const socket = new WebSocket(`ws://${backendHost}:8000/ws`);
     wsRef.current = socket; // store immediately so input handler can use it right away
 
@@ -291,7 +292,7 @@ function App() {
       const ts = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
       setOutput(prev => [...prev, {
         timestamp: ts,
-        text: '\u26a0 WebSocket error: Could not connect to backend on port 8000.\nMake sure the FastAPI server is running (npm run dev starts it automatically).',
+        text: `\u26a0 WebSocket error: Could not connect to backend at ws://${backendHost}:8000/ws.\n1. Make sure the backend is running.\n2. Ensure your phone and PC are on the same Wi-Fi.\n3. Check if Windows Firewall is blocking port 8000.`,
         type: 'stderr'
       }]);
       setIsRunning(false);
