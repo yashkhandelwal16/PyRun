@@ -563,7 +563,7 @@ function App() {
                 const selection = window.getSelection();
                 if (selection && selection.toString().length > 0) return; // Prevent focus if user is selecting text
                 
-                if (isRunning && stdinRef.current) {
+                if (!isMobile && isRunning && stdinRef.current) {
                   stdinRef.current.focus();
                 }
               }}
@@ -610,7 +610,7 @@ function App() {
                         }
                       }
                     }}
-                    autoFocus
+                    autoFocus={!isMobile}
                   />
                 </div>
               )}
