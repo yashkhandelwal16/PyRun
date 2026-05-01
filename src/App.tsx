@@ -98,7 +98,9 @@ function App() {
   const [exitCode, setExitCode] = useState<number | null>(null);
   const wsRef = useRef<WebSocket | null>(null); // use ref so closures always see the live socket
   const [leftWidth, setLeftWidth] = useState(60); // percentage
-  const [outputFontSize, setOutputFontSize] = useState(16);
+  const [outputFontSize, setOutputFontSize] = useState(() => {
+    return typeof window !== 'undefined' && window.innerWidth <= 1024 ? 13 : 16;
+  });
   const [editorFontSize, setEditorFontSize] = useState(14);
   const [isResizing, setIsResizing] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
