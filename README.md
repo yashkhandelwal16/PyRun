@@ -1,6 +1,6 @@
 # PyRun Project Workflow
 
-PyRun is a high-performance, responsive online Python compiler. It allows users to write, compile, and execute code in real-time with a professional-grade interface. While optimized for Python, it also provides a robust environment for Python.
+PyRun is a high-performance, responsive online Python compiler and IDE. It allows users to write, compile, and execute code in real-time with a professional-grade interface. While optimized for Python, it also provides a robust environment for Python.
 
 ## 🚀 Technology Stack
 
@@ -22,8 +22,8 @@ PyRun is a high-performance, responsive online Python compiler. It allows users 
 
 ## 🎨 Key UI Features
 
-### 1. Premium Badge Selector
-The language selector is designed as a premium badge that displays the current language emoji, name, and version. It uses a "ghost" selection mechanism that allows users to switch between Python while maintaining a sleek, unified aesthetic.
+### 1. Install Most of the Packages
+In this Project, there are most of the Pythpn Library and modules are installed already.
 
 ### 2. High-Contrast Terminal
 The terminal output is optimized for both light and dark modes:
