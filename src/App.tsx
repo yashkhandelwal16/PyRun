@@ -49,7 +49,27 @@ app = Engine("CompilerHub")
 app.execute()`,
 };
 
-const LANGUAGES: Language[] = [PYTHON];
+const CPP: Language = {
+  id: 'cpp',
+  name: 'C++',
+  version: 'GCC 14.2.0',
+  pistonId: '101',
+  emoji: '🚀',
+  ext: 'cpp',
+  snippet: `#include <iostream>
+#include <string>
+
+int main() {
+    std::string name;
+    std::cout << "Enter your name: " << std::flush;
+    if (std::getline(std::cin, name)) {
+        std::cout << "Hello, " << name << "!" << std::endl;
+    }
+    return 0;
+}`,
+};
+
+const LANGUAGES: Language[] = [PYTHON, CPP];
 
 interface OutputLine {
   timestamp: string;
@@ -65,7 +85,7 @@ interface FileTab {
 }
 
 function App() {
-  const [selectedLang] = useState<Language>(PYTHON);
+  const [selectedLang, setSelectedLang] = useState<Language>(PYTHON);
   const [files, setFiles] = useState<FileTab[]>([
     { id: 'main', name: `main.${PYTHON.ext}`, content: PYTHON.snippet, isMain: true }
   ]);
@@ -102,6 +122,13 @@ function App() {
   }, [isDarkMode]);
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
+
+  const handleLanguageChange = (langId: string) => {
+    const lang = LANGUAGES.find(l => l.id === langId);
+    if (!lang) return;
+    setSelectedLang(lang);
+    setFiles(prev => prev.map(f => f.isMain ? { ...f, name: `main.${lang.ext}`, content: lang.snippet } : f));
+  };
 
   const updateActiveFileCode = (value: string) => {
     setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: value } : f));
@@ -288,11 +315,20 @@ function App() {
         </div>
         <div className="header-right">
           {/* Static Python badge — no dropdown needed */}
-          <div className="python-badge">
-            <span className="lang-emoji">{PYTHON.emoji}</span>
+          {/* Language Selector styled as a Badge */}
+          <div className="lang-badge-selector">
+            <span className="lang-emoji">{selectedLang.emoji}</span>
             <div className="lang-info">
-              <span className="lang-name">{PYTHON.name}</span>
-              <span className="lang-version">{PYTHON.version}</span>
+              <select 
+                className="lang-select-ghost" 
+                value={selectedLang.id}
+                onChange={(e) => handleLanguageChange(e.target.value)}
+              >
+                {LANGUAGES.map(lang => (
+                  <option key={lang.id} value={lang.id}>{lang.name}</option>
+                ))}
+              </select>
+              <span className="lang-version">{selectedLang.version}</span>
             </div>
           </div>
 
@@ -347,7 +383,7 @@ function App() {
                 onClick={() => setActiveFileId(file.id)}
               >
                 <span className="tab-icon">
-                  {file.isMain ? PYTHON.emoji : <FileCode2 size={14} />}
+                  {file.isMain ? selectedLang.emoji : <FileCode2 size={14} />}
                 </span>
                 <span className="tab-name">{file.name}</span>
                 {/* Show close button only when there are multiple tabs AND it's not the main file */}
