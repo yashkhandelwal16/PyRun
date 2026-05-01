@@ -27,9 +27,11 @@
 }
 
 .app-container {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
   height: 100vh;
+  height: 100dvh;
+  width: 100%;
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: 'Inter', sans-serif;
@@ -190,7 +192,6 @@
 
 /* Main Content Styles */
 .main-content {
-  flex: 1;
   display: flex;
   overflow: hidden;
   position: relative;
@@ -614,10 +615,10 @@
   }
 
   .main-content {
+    display: flex;
     flex-direction: column;
-    overflow: hidden; /* Fix: No scrolling of the whole project */
-    height: calc(100vh - 56px - 40px); /* Fill space between header and footer */
-    flex: 1;
+    overflow: hidden;
+    min-height: 0;
   }
 
   .editor-part, .output-part {

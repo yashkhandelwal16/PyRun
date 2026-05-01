@@ -253,7 +253,8 @@ function App() {
     setOutput([]);
     const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-    const socket = new WebSocket('ws://localhost:8000/ws');
+    const backendHost = window.location.hostname;
+    const socket = new WebSocket(`ws://${backendHost}:8000/ws`);
     wsRef.current = socket; // store immediately so input handler can use it right away
 
     socket.onopen = () => {
@@ -527,8 +528,9 @@ function App() {
 
         {/* Output Part */}
         <div className="output-part" style={{ 
-          width: isMobile ? '100%' : `${100 - leftWidth}%`,
-          height: isMobile ? `${100 - leftWidth}%` : '100%'
+          width: isMobile ? '100%' : 'auto',
+          height: isMobile ? 'auto' : '100%',
+          flex: 1
         }}>
           <div className="section-header">
             <h2 className="section-title">Terminal Output</h2>
