@@ -45,7 +45,7 @@ class Engine:
         print(f"Initializing {self.name} v{self.version}...")
         print("Hello, World!")
 
-app = Engine("CompilerHub")
+app = Engine("Compiler")
 app.execute()`,
 };
 
