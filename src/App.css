@@ -580,35 +580,58 @@
   .header {
     padding: 0 16px;
     height: auto;
-    min-height: 64px;
+    min-height: 56px;
     flex-wrap: wrap;
-    gap: 12px;
-    padding-top: 12px;
-    padding-bottom: 12px;
+    gap: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
   }
 
   .header-right {
-    gap: 16px;
+    gap: 12px;
   }
 
   .main-content {
     flex-direction: column;
-    overflow-y: auto;
-    height: auto;
+    overflow: hidden; /* Fix: No scrolling of the whole project */
+    height: calc(100vh - 56px - 40px); /* Fill space between header and footer */
+    flex: 1;
   }
 
   .editor-part, .output-part {
     width: 100% !important;
-    height: auto !important;
-    min-height: 450px;
+    /* height is controlled by inline style from App.tsx */
+    min-height: 100px; 
   }
 
   .resizer {
-    display: none;
+    width: 100%;
+    height: 16px;
+    cursor: row-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-primary);
+    z-index: 5;
+  }
+
+  .resizer-line {
+    width: 100%;
+    height: 1px;
+    background: var(--border-color);
+  }
+
+  .resizer-handle {
+    flex-direction: row;
+    padding: 2px 12px;
+    gap: 4px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
   }
 
   .editor-wrapper {
-    margin: 0 16px 16px 16px;
+    margin: 0 16px 12px 16px;
   }
 
   .editor-tabs {
@@ -617,6 +640,23 @@
 
   .section-header {
     padding: 0 16px;
+    height: 40px;
+  }
+
+  .section-title {
+    font-size: 14px;
+  }
+
+  .action-icons {
+    gap: 8px;
+  }
+
+  .icon-btn {
+    padding: 4px;
+  }
+
+  .run-icon-btn {
+    padding: 6px 10px;
   }
 
   .output-body {
@@ -624,7 +664,7 @@
   }
 
   .output-log {
-    padding: 16px;
+    padding: 12px;
   }
 }
 
@@ -634,7 +674,7 @@
   }
   
   .lang-badge-selector {
-    padding: 5px 10px;
+    padding: 4px 8px;
   }
   
   .lang-emoji {
@@ -642,6 +682,27 @@
   }
 
   .lang-select-ghost {
-    font-size: 12px;
+    font-size: 11px;
+  }
+
+  .lang-version {
+    display: none; /* Hide version on tiny screens */
+  }
+
+  .run-icon-btn::after {
+    display: none; /* Hide "Run" text on mobile to ensure button is visible */
+  }
+
+  .font-size-control {
+    display: none; /* Hide font control on mobile to save space */
+  }
+
+  .section-title {
+    display: none; /* Hide "Editor" / "Terminal" text if too cramped */
+  }
+
+  .action-icons {
+    width: 100%;
+    justify-content: space-between;
   }
 }

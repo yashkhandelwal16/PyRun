@@ -173,14 +173,26 @@ function App() {
     setIsResizing(false);
   }, []);
 
-  const resize = useCallback((e: MouseEvent) => {
+  const resize = useCallback((event: MouseEvent | TouchEvent) => {
     if (isResizing && containerRef.current) {
+      const e = 'touches' in event ? event.touches[0] : event;
       window.requestAnimationFrame(() => {
         if (!containerRef.current) return;
-        const containerWidth = containerRef.current.clientWidth;
-        const newLeftWidth = (e.clientX / containerWidth) * 100;
-        if (newLeftWidth > 15 && newLeftWidth < 85) {
-          setLeftWidth(newLeftWidth);
+        const isMobile = window.innerWidth <= 1024;
+        if (isMobile) {
+          const containerHeight = containerRef.current.clientHeight;
+          const rect = containerRef.current.getBoundingClientRect();
+          const relativeY = e.clientY - rect.top;
+          const newTopHeight = (relativeY / containerHeight) * 100;
+          if (newTopHeight > 15 && newTopHeight < 85) {
+            setLeftWidth(newTopHeight);
+          }
+        } else {
+          const containerWidth = containerRef.current.clientWidth;
+          const newLeftWidth = (e.clientX / containerWidth) * 100;
+          if (newLeftWidth > 15 && newLeftWidth < 85) {
+            setLeftWidth(newLeftWidth);
+          }
         }
       });
     }
@@ -190,13 +202,19 @@ function App() {
     if (isResizing) {
       window.addEventListener('mousemove', resize);
       window.addEventListener('mouseup', stopResizing);
+      window.addEventListener('touchmove', resize, { passive: false });
+      window.addEventListener('touchend', stopResizing);
     } else {
       window.removeEventListener('mousemove', resize);
       window.removeEventListener('mouseup', stopResizing);
+      window.removeEventListener('touchmove', resize);
+      window.removeEventListener('touchend', stopResizing);
     }
     return () => {
       window.removeEventListener('mousemove', resize);
       window.removeEventListener('mouseup', stopResizing);
+      window.removeEventListener('touchmove', resize);
+      window.removeEventListener('touchend', stopResizing);
     };
   }, [isResizing, resize, stopResizing]);
 
@@ -280,7 +298,7 @@ function App() {
     };
 
     socket.onclose = () => {
-      // Only flip isRunning off if we weren\'t already stopped by an exit/error message
+      // Only flip isRunning off if we weren't already stopped by an exit/error message
       setIsRunning(prev => {
         if (prev) return false;
         return prev;
@@ -301,6 +319,8 @@ function App() {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 1024;
 
   return (
     <div className="app-container" ref={containerRef}>
@@ -343,9 +363,12 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="main-content" style={{ cursor: isResizing ? 'col-resize' : 'default' }}>
+      <main className="main-content" style={{ cursor: isResizing ? (isMobile ? 'row-resize' : 'col-resize') : 'default' }}>
         {/* Editor Part */}
-        <div className="editor-part" style={{ width: `${leftWidth}%` }}>
+        <div className="editor-part" style={{ 
+          width: isMobile ? '100%' : `${leftWidth}%`,
+          height: isMobile ? `${leftWidth}%` : '100%'
+        }}>
           <div className="section-header">
             <h2 className="section-title">Editor</h2>
             <div className="action-icons">
@@ -367,6 +390,7 @@ function App() {
               <button
                 className="icon-btn run-icon-btn"
                 onClick={runCode}
+                id="run-button"
                 title={isRunning ? "Stop Code" : "Run Code"}
                 style={{ color: isRunning ? '#ef4444' : '#eab308' }}
               >
@@ -433,7 +457,10 @@ function App() {
         </div>
 
         {/* Resizer */}
-        <div className="resizer" onMouseDown={startResizing}>
+        <div className="resizer" onMouseDown={startResizing} onTouchStart={(e) => {
+          // Add touch support for resizer
+          setIsResizing(true);
+        }}>
           <div className="resizer-line"></div>
           <div className="resizer-handle">
             <span>•</span>
@@ -443,7 +470,10 @@ function App() {
         </div>
 
         {/* Output Part */}
-        <div className="output-part" style={{ width: `${100 - leftWidth}%` }}>
+        <div className="output-part" style={{ 
+          width: isMobile ? '100%' : `${100 - leftWidth}%`,
+          height: isMobile ? `${100 - leftWidth}%` : '100%'
+        }}>
           <div className="section-header">
             <h2 className="section-title">Terminal Output</h2>
             <div className="section-header-right">
@@ -464,6 +494,7 @@ function App() {
               </button>
             </div>
           </div>
+
 
           <div className="output-body">
             <div 
