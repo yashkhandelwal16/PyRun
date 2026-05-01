@@ -327,11 +327,67 @@ function App() {
       {/* Header */}
       <header className="header">
         <div className="header-left">
-          <div className="logo-container">
-            <span className="logo-icon">{'>>>'}</span>
-            <span className="logo-text">PyRun</span>
-            <span className="logo-icon">{'<<<'}</span>
-          </div>
+          <motion.div 
+            className="logo-container"
+            initial="initial"
+            whileHover="hover"
+          >
+            <motion.span 
+              className="logo-icon"
+              variants={{
+                initial: { x: -10, opacity: 0 },
+                animate: { x: 0, opacity: 0.85 },
+                hover: { x: -3, color: 'var(--accent)', scale: 1.1 }
+              }}
+              initial="initial"
+              animate="animate"
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            >
+              {'>>>'}
+            </motion.span>
+            
+            <motion.div className="logo-text-wrapper" style={{ display: 'flex' }}>
+              {"PyRun".split("").map((char, index) => (
+                <motion.span
+                  key={index}
+                  className="logo-text"
+                  variants={{
+                    initial: { y: 10, opacity: 0 },
+                    animate: { y: 0, opacity: 1 },
+                    hover: { 
+                      y: -2,
+                      color: 'var(--accent)',
+                      transition: { duration: 0.2 }
+                    }
+                  }}
+                  initial="initial"
+                  animate="animate"
+                  transition={{ 
+                    duration: 0.4, 
+                    delay: index * 0.1,
+                    ease: "easeOut"
+                  }}
+                  style={{ display: 'inline-block' }}
+                >
+                  {char}
+                </motion.span>
+              ))}
+            </motion.div>
+
+            <motion.span 
+              className="logo-icon"
+              variants={{
+                initial: { x: 10, opacity: 0 },
+                animate: { x: 0, opacity: 0.85 },
+                hover: { x: 3, color: 'var(--accent)', scale: 1.1 }
+              }}
+              initial="initial"
+              animate="animate"
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            >
+              {'<<<'}
+            </motion.span>
+          </motion.div>
         </div>
         <div className="header-right">
           {/* Static Python badge — no dropdown needed */}
