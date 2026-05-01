@@ -149,7 +149,7 @@ function App() {
 
   const closeFile = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (id === 'main') return;
+    if (files.length <= 1) return; // Must keep at least one tab
     
     const newFiles = files.filter(f => f.id !== id);
     if (activeFileId === id) {
@@ -386,8 +386,8 @@ function App() {
                   {file.isMain ? selectedLang.emoji : <FileCode2 size={14} />}
                 </span>
                 <span className="tab-name">{file.name}</span>
-                {/* Show close button only when there are multiple tabs AND it's not the main file */}
-                {!file.isMain && files.length > 1 && (
+                {/* Show close button on hover for all tabs as long as there are multiple */}
+                {files.length > 1 && (
                   <button 
                     className="tab-close-btn" 
                     onClick={(e) => closeFile(e, file.id)}
