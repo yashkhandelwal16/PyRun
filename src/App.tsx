@@ -452,7 +452,7 @@ function App() {
                   <span className="output-text" style={{
                     color: line.type === 'stderr' ? '#f87171' : line.type === 'system' ? 'var(--text-muted)' : 'var(--text-primary)',
                     fontStyle: line.type === 'system' ? 'italic' : 'normal',
-                    fontWeight: line.type === 'user-input' ? '600' : '400'
+                    fontWeight: line.type === 'user-input' ? '600' : 'inherit'
                   }}>
                     {line.text}
                   </span>

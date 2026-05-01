@@ -17,12 +17,12 @@
   --bg-secondary: #ffffff;
   --bg-tertiary: #f1f3f5;
   --bg-editor: #ffffff;
-  --bg-input: #f8f9fa;
-  --border-color: #ced4da;
-  --text-primary: #000000;
-  --text-secondary: #212529;
-  --text-muted: #495057;
-  --text-dim: #212529;
+  --bg-input: #ffffff; /* Brighter background for better contrast */
+  --border-color: #d1d5db;
+  --text-primary: #000000; /* Pure black */
+  --text-secondary: #111827;
+  --text-muted: #374151; /* Darker muted text */
+  --text-dim: #4b5563;
   --accent: #d97706;
 }
 
@@ -486,8 +486,13 @@
   padding: 24px;
   display: flex;
   flex-direction: column;
-  cursor: text; /* feels more like terminal */
+  cursor: text;
   min-height: 0;
+  font-weight: 500; /* Make all terminal text slightly bolder by default */
+}
+
+[data-theme="light"] .output-log {
+  font-weight: 600; /* Even bolder in light mode for maximum contrast */
 }
 
 .output-line {
