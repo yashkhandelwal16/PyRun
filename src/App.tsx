@@ -255,8 +255,11 @@ function App() {
     setOutput([]);
     const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname === 'localhost' ? 'localhost:8000' : window.location.host;
+    // Use backend URL from env var for production, fallback to localhost for dev
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || (window.location.hostname === 'localhost' ? 'http://localhost:8000' : `${window.location.protocol}//${window.location.host}`);
+    const backendUrlObj = new URL(backendUrl);
+    const protocol = backendUrlObj.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = backendUrlObj.host;
     const socket = new WebSocket(`${protocol}//${host}/ws`);
     wsRef.current = socket; // store immediately so input handler can use it right away
 
