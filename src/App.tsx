@@ -95,6 +95,7 @@ function App() {
   const [stdin, setStdin] = useState<string>('');
   const [output, setOutput] = useState<OutputLine[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [exitCode, setExitCode] = useState<number | null>(null);
   const wsRef = useRef<WebSocket | null>(null); // use ref so closures always see the live socket
   const [leftWidth, setLeftWidth] = useState(60); // percentage
@@ -163,9 +164,6 @@ function App() {
     setFiles(newFiles);
   };
 
-  const handleEditorDidMount = (editor: any) => {
-    editorRef.current = editor;
-  };
 
   const startResizing = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -240,6 +238,8 @@ function App() {
   }, []);
 
   const runCode = () => {
+    if (isConnecting) return; // Ignore clicks while connecting
+
     if (isRunning) {
       stopCode();
       return;
@@ -251,7 +251,7 @@ function App() {
       wsRef.current = null;
     }
 
-    setIsRunning(true);
+    setIsConnecting(true);
     setExitCode(null);
     setOutput([]);
     const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -261,6 +261,8 @@ function App() {
     wsRef.current = socket; // store immediately so input handler can use it right away
 
     socket.onopen = () => {
+      setIsConnecting(false);
+      setIsRunning(true);
       socket.send(JSON.stringify({ type: 'run', language: selectedLang.id, code: activeFile.content }));
     };
 
@@ -297,11 +299,13 @@ function App() {
         text: `\u26a0 WebSocket error: Could not connect to backend at ws://${backendHost}:8000/ws.\n1. Make sure the backend is running.\n2. Ensure your phone and PC are on the same Wi-Fi.\n3. Check if Windows Firewall is blocking port 8000.`,
         type: 'stderr'
       }]);
+      setIsConnecting(false);
       setIsRunning(false);
       wsRef.current = null;
     };
 
     socket.onclose = () => {
+      setIsConnecting(false);
       // Only flip isRunning off if we weren't already stopped by an exit/error message
       setIsRunning(prev => {
         if (prev) return false;
@@ -328,6 +332,22 @@ function App() {
 
   return (
     <div className="app-container" ref={containerRef}>
+      {/* Resizer Overlay to prevent mouse capture during drag */}
+      {isResizing && (
+        <div 
+          className="resizer-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            cursor: isMobile ? 'row-resize' : 'col-resize',
+            pointerEvents: 'all'
+          }}
+        />
+      )}
       {/* Header */}
       <header className="header">
         <div className="header-left">
@@ -427,7 +447,8 @@ function App() {
         {/* Editor Part */}
         <div className="editor-part" style={{ 
           width: isMobile ? '100%' : `${leftWidth}%`,
-          height: isMobile ? `${leftWidth}%` : '100%'
+          height: isMobile ? `${leftWidth}%` : '100%',
+          pointerEvents: isResizing ? 'none' : 'auto'
         }}>
           <div className="section-header">
             <h2 className="section-title">Editor</h2>
@@ -452,9 +473,30 @@ function App() {
                 onClick={runCode}
                 id="run-button"
                 title={isRunning ? "Stop Code" : "Run Code"}
-                style={{ color: isRunning ? '#ef4444' : '#eab308' }}
+                style={{ 
+                  color: isRunning ? '#ef4444' : (isConnecting ? '#94a3b8' : '#eab308'),
+                  cursor: isConnecting ? 'not-allowed' : 'pointer',
+                  opacity: isConnecting ? 0.6 : 1
+                }}
+                disabled={isConnecting}
               >
-                {isRunning ? <Square size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+                {isConnecting ? (
+                  <>
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <Play size={18} fill="currentColor" />
+                    </motion.div>
+                    <span className="run-btn-text">Connecting...</span>
+                  </>
+                ) : (
+                  <>
+                    {isRunning ? <Square size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+                    <span className="run-btn-text">{isRunning ? "Stop" : "Run"}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -491,36 +533,46 @@ function App() {
               value={activeFile.content}
               theme={isDarkMode ? "vs-dark" : "light"}
               onChange={(value) => updateActiveFileCode(value || '')}
-              onMount={handleEditorDidMount}
+              onMount={(editor) => {
+                editorRef.current = editor;
+              }}
               options={{
                 fontSize: editorFontSize,
                 fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                tabSize: 4,
+                insertSpaces: true,
+                autoIndent: 'none', // Critical fix for mobile indentation
+                formatOnPaste: false, // Critical fix for mobile indentation
+                trimAutoWhitespace: false,
+                wordWrap: 'on',
+                scrollBeyondLastLine: false,
                 minimap: { enabled: false },
-                scrollbar: {
-                  vertical: 'visible',
-                  horizontal: 'visible',
-                  verticalScrollbarSize: 10,
-                  horizontalScrollbarSize: 10,
-                },
                 lineNumbers: 'on',
-                glyphMargin: false,
                 folding: true,
-                lineDecorationsWidth: 10,
-                lineNumbersMinChars: 3,
                 automaticLayout: true,
                 backgroundColor: '#0e0e0e',
-                padding: { top: 16 },
+                padding: { top: 16, bottom: 16 },
                 renderLineHighlight: 'all',
+                suggestOnTriggerCharacters: false,
+                acceptSuggestionOnEnter: 'off',
+                quickSuggestions: false,
+                wordBasedSuggestions: "off",
+                parameterHints: { enabled: false },
+                suggest: { showWords: false },
+                unicodeHighlight: { ambiguousCharacters: false, invisibleCharacters: false },
               }}
             />
           </div>
         </div>
 
         {/* Resizer */}
-        <div className="resizer" onMouseDown={startResizing} onTouchStart={(e) => {
-          // Add touch support for resizer
-          setIsResizing(true);
-        }}>
+        <div className="resizer" 
+          onMouseDown={startResizing} 
+          onTouchStart={(e) => {
+            // No preventDefault here to allow scrolling if needed, but start resize
+            setIsResizing(true);
+          }}
+        >
           <div className="resizer-line"></div>
           <div className="resizer-handle">
             <span>•</span>
@@ -532,8 +584,9 @@ function App() {
         {/* Output Part */}
         <div className="output-part" style={{ 
           width: isMobile ? '100%' : 'auto',
-          height: isMobile ? 'auto' : '100%',
-          flex: 1
+          height: isMobile ? '0' : '100%', // Use 0 + flex: 1 to ensure it stays in container
+          flex: 1,
+          pointerEvents: isResizing ? 'none' : 'auto'
         }}>
           <div className="section-header">
             <h2 className="section-title">Terminal Output</h2>
@@ -571,8 +624,9 @@ function App() {
               }}
             >
               <div className="output-status-text">
-                {output.length === 0 && !isRunning && "Click Run to see output"}
-                {isRunning && "Running process..."}
+                {output.length === 0 && !isRunning && !isConnecting && "Click Run to see output"}
+                {isConnecting && "Connecting to execution engine..."}
+                {isRunning && "Process started..."}
               </div>
 
               {output.map((line, i) => (

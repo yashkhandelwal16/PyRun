@@ -505,8 +505,7 @@
 
 .output-log {
   flex: 1;
-  overflow-y: scroll;
-  overflow-x: auto;
+  overflow: auto;
   font-family: 'JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
   line-height: 1.6;
   background: var(--bg-input);
@@ -518,15 +517,20 @@
   flex-direction: column;
   cursor: text;
   min-height: 0;
-  font-weight: 500; /* Make all terminal text slightly bolder by default */
+  font-weight: 500;
+  box-sizing: border-box;
 }
 
 [data-theme="light"] .output-log {
-  font-weight: 600; /* Even bolder in light mode for maximum contrast */
+  font-weight: 600;
 }
 
 .output-line {
-  white-space: pre;
+  white-space: pre-wrap;
+  word-break: break-all;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Seamless Terminal Input */
@@ -550,8 +554,8 @@
 }
 
 .output-log::-webkit-scrollbar {
-  width: 14px;
-  height: 14px;
+  width: 8px;
+  height: 8px;
 }
 
 .output-log::-webkit-scrollbar-track {
@@ -559,16 +563,12 @@
 }
 
 .output-log::-webkit-scrollbar-thumb {
-  background-color: rgba(121, 121, 121, 0.4);
-  border-right: 3px solid transparent;
-  border-left: 1px solid transparent;
-  border-top: 1px solid transparent;
-  border-bottom: 1px solid transparent;
-  background-clip: padding-box;
+  background-color: var(--border-color);
+  border-radius: 10px;
 }
 
 .output-log::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(100, 100, 100, 0.7);
+  background-color: var(--text-muted);
 }
 
 .output-exit-code {
