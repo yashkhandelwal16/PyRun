@@ -280,12 +280,6 @@
   gap: 6px;
 }
 
-.run-icon-btn::after {
-  content: "Run";
-  font-weight: 600;
-  font-size: 13px;
-}
-
 .run-icon-btn:hover {
   background: rgba(234, 179, 8, 0.2);
 }
@@ -712,8 +706,8 @@
     display: none; /* Hide version on tiny screens */
   }
 
-  .run-icon-btn::after {
-    display: none; /* Hide "Run" text on mobile to ensure button is visible */
+  .run-btn-text {
+    display: none; /* Hide text on small screens to save space */
   }
 
   .font-size-control {
