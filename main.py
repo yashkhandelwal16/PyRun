@@ -44,9 +44,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def root():
+    return {"status": "online", "message": "PyRun Backend is running successfully!"}
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    print(f"New connection attempt from: {websocket.client}")
     await websocket.accept()
+    print("Connection accepted")
     process = None
     temp_file_path = None
 
