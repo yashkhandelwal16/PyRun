@@ -12,9 +12,8 @@ import {
   Moon,
   FileCode2
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import './App.css';
-import backendConfig from './backend-config.json';
 
 interface Language {
   id: string;
@@ -256,8 +255,12 @@ function App() {
     setOutput([]);
     const timestamp = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-    const backendHost = window.location.hostname === 'localhost' ? 'localhost' : backendConfig.backendIp;
-    const socket = new WebSocket(`ws://${backendHost}:8000/ws`);
+    // Use backend URL from env var for production, fallback to localhost for dev
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || (window.location.hostname === 'localhost' ? 'http://localhost:8000' : `${window.location.protocol}//${window.location.host}`);
+    const backendUrlObj = new URL(backendUrl);
+    const protocol = backendUrlObj.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = backendUrlObj.host;
+    const socket = new WebSocket(`${protocol}//${host}/ws`);
     wsRef.current = socket; // store immediately so input handler can use it right away
 
     socket.onopen = () => {
@@ -292,11 +295,12 @@ function App() {
       }
     };
 
-    socket.onerror = () => {
+    socket.onerror = (error) => {
+      console.error("WebSocket Connection Error:", error);
       const ts = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
       setOutput(prev => [...prev, {
         timestamp: ts,
-        text: `\u26a0 WebSocket error: Could not connect to backend at ws://${backendHost}:8000/ws.\n1. Make sure the backend is running.\n2. Ensure your phone and PC are on the same Wi-Fi.\n3. Check if Windows Firewall is blocking port 8000.`,
+        text: `\u26a0 WebSocket error: Could not connect to backend at ${protocol}//${host}/ws.\n1. Make sure the backend is running.\n2. Ensure your phone and PC are on the same Wi-Fi.\n3. Check if Windows Firewall is blocking port 8000.`,
         type: 'stderr'
       }]);
       setIsConnecting(false);
@@ -550,7 +554,6 @@ function App() {
                 lineNumbers: 'on',
                 folding: true,
                 automaticLayout: true,
-                backgroundColor: '#0e0e0e',
                 padding: { top: 16, bottom: 16 },
                 renderLineHighlight: 'all',
                 suggestOnTriggerCharacters: false,
@@ -568,7 +571,7 @@ function App() {
         {/* Resizer */}
         <div className="resizer" 
           onMouseDown={startResizing} 
-          onTouchStart={(e) => {
+          onTouchStart={() => {
             // No preventDefault here to allow scrolling if needed, but start resize
             setIsResizing(true);
           }}
