@@ -6,6 +6,7 @@ import tempfile
 import re
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI
 
 def format_error_message(err_str: str, language: str) -> str:
     # Python
@@ -225,3 +226,11 @@ async def websocket_endpoint(websocket: WebSocket):
         except: pass
     except Exception as e:
         print("WS Error:", e)
+
+@app.get("/")
+def home():
+    return {"message": "Backend running"}
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
