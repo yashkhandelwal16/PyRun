@@ -110,7 +110,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Generate temp file
                 temp_dir = tempfile.gettempdir()
                 filename = f"code_{uuid.uuid4().hex}"
-                files_to_cleanup = []
+                files_to_cleanup.clear()
 
                 try:
                     if language == "python":
@@ -292,6 +292,10 @@ async def websocket_endpoint(websocket: WebSocket):
                                     else:
                                         os.remove(p)
                                 except: pass
+                except Exception as e:
+                    print(f"Execution Error: {e}")
+                    await websocket.send_json({"type": "error", "data": f"\n⚠️ An unexpected error occurred: {str(e)}\n"})
+                    await websocket.send_json({"type": "exit", "code": 1})
 
 
             elif data.get("type") == "input":
@@ -326,10 +330,6 @@ async def websocket_endpoint(websocket: WebSocket):
         except: pass
         print(f"Connection closed. Active: {active_connections}")
 
-@app.get("/")
-def home():
-    return {"message": "Backend running"}
-
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "healthy"}
