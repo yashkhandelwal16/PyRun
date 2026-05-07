@@ -4,6 +4,7 @@ import os
 import uuid
 import tempfile
 import re
+import shutil
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
@@ -74,7 +75,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
             if data.get("type") == "run":
                 if process and process.returncode is None:
-                    process.terminate()
+                    try:
+                        process.kill()
+                    except: pass
 
                 language = data.get("language")
                 code = data.get("code")
@@ -160,7 +163,12 @@ async def websocket_endpoint(websocket: WebSocket):
                         await websocket.send_json({"type": "exit", "code": 1})
                         continue
 
-                    # No timeout logic -> Unlimited Execution Time as requested!
+                    # Timeout and Output Limit Logic
+                    EXECUTION_TIMEOUT = 5.0
+                    MAX_OUTPUT_BYTES = 100 * 1024
+                    output_bytes_count = 0
+                    execution_terminated = False
+
                     process = await asyncio.create_subprocess_exec(
                         *cmd,
                         stdin=asyncio.subprocess.PIPE,
@@ -173,30 +181,79 @@ async def websocket_endpoint(websocket: WebSocket):
                     await websocket.send_json({"type": "exit", "code": 1})
                     continue
 
-                asyncio.create_task(read_stream(process.stdout, "output"))
-                
-                async def read_stderr():
+                async def read_stream(stream, stream_type):
+                    nonlocal output_bytes_count, execution_terminated
                     try:
-                        while True:
+                        while not execution_terminated:
+                            data = await stream.read(1024)
+                            if not data:
+                                break
+                            
+                            output_bytes_count += len(data)
+                            if output_bytes_count > MAX_OUTPUT_BYTES:
+                                execution_terminated = True
+                                if process.returncode is None:
+                                    try:
+                                        process.kill()
+                                    except: pass
+                                await websocket.send_json({"type": "error", "data": "\n\n⚠️ Execution halted: Output limit exceeded (too much data printed)\n"})
+                                break
+                                
+                            await websocket.send_json({"type": stream_type, "data": data.decode('utf-8', errors='replace')})
+                    except Exception:
+                        pass
+
+                async def read_stderr():
+                    nonlocal output_bytes_count, execution_terminated
+                    try:
+                        while not execution_terminated:
                             chunk = await process.stderr.read(1024)
                             if not chunk:
                                 break
-                            err_str = chunk.decode('utf-8')
+                            
+                            output_bytes_count += len(chunk)
+                            if output_bytes_count > MAX_OUTPUT_BYTES:
+                                execution_terminated = True
+                                if process.returncode is None:
+                                    try:
+                                        process.kill()
+                                    except: pass
+                                await websocket.send_json({"type": "error", "data": "\n\n⚠️ Execution halted: Output limit exceeded\n"})
+                                break
+
+                            err_str = chunk.decode('utf-8', errors='replace')
                             formatted_err = format_error_message(err_str, language)
                             await websocket.send_json({"type": "error", "data": formatted_err})
                     except Exception:
                         pass
-                
-                asyncio.create_task(read_stderr())
+
+                async def timeout_watcher():
+                    nonlocal execution_terminated
+                    await asyncio.sleep(EXECUTION_TIMEOUT)
+                    if process.returncode is None:
+                        execution_terminated = True
+                        try:
+                            process.kill()
+                        except: pass
+                        await websocket.send_json({"type": "error", "data": "\n\n⚠️ Execution halted: Time limit exceeded (5s)\n"})
+
+                # Start tasks
+                stdout_task = asyncio.create_task(read_stream(process.stdout, "output"))
+                stderr_task = asyncio.create_task(read_stderr())
+                timeout_task = asyncio.create_task(timeout_watcher())
 
                 async def wait_for_exit():
                     code = await process.wait()
+                    # Cancel timeout watcher if process finished naturally
+                    if not timeout_task.done():
+                        timeout_task.cancel()
+                    
                     await websocket.send_json({"type": "exit", "code": code})
                     for p in files_to_cleanup:
                         if os.path.exists(p):
                             try:
                                 if os.path.isdir(p):
-                                    os.rmdir(p)
+                                    shutil.rmtree(p, ignore_errors=True)
                                 else:
                                     os.remove(p)
                             except: pass
@@ -211,16 +268,20 @@ async def websocket_endpoint(websocket: WebSocket):
             
             elif data.get("type") == "stop":
                 if process and process.returncode is None:
-                    process.terminate()
+                    try:
+                        process.kill()
+                    except: pass
 
     except WebSocketDisconnect:
         if process and process.returncode is None:
-            process.terminate()
+            try:
+                process.kill()
+            except: pass
         try:
             for p in files_to_cleanup:
                 if os.path.exists(p):
                     if os.path.isdir(p):
-                        os.rmdir(p)
+                        shutil.rmtree(p, ignore_errors=True)
                     else:
                         os.remove(p)
         except: pass

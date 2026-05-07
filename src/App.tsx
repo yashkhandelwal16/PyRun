@@ -271,23 +271,28 @@ function App() {
 
     socket.onmessage = (event) => {
       const msg = JSON.parse(event.data);
-      if (msg.type === 'output') {
+      const MAX_LINES = 500;
+
+      if (msg.type === 'output' || msg.type === 'error') {
         setOutput(prev => {
+          const type = msg.type === 'error' ? 'stderr' : 'stdout';
           const lines = msg.data.split('\n');
-          const newOut = [...prev];
+          let newOut = [...prev];
+          
           lines.forEach((l: string, i: number) => {
-            if (i === 0 && newOut.length > 0 && !newOut[newOut.length - 1].text.endsWith('\n') && newOut[newOut.length - 1].type === 'stdout') {
+            if (i === 0 && newOut.length > 0 && !newOut[newOut.length - 1].text.endsWith('\n') && newOut[newOut.length - 1].type === type) {
               newOut[newOut.length - 1].text += l;
-            } else if (l !== '') {
-              newOut.push({ timestamp, text: l, type: 'stdout' });
-            } else if (l === '' && i < lines.length - 1) {
-              newOut.push({ timestamp, text: '', type: 'stdout' });
+            } else if (l !== '' || i < lines.length - 1) {
+              newOut.push({ timestamp, text: l, type });
             }
           });
+
+          // Limit number of lines to prevent browser freeze
+          if (newOut.length > MAX_LINES) {
+            newOut = newOut.slice(newOut.length - MAX_LINES);
+          }
           return newOut;
         });
-      } else if (msg.type === 'error') {
-        setOutput(prev => [...prev, { timestamp, text: msg.data, type: 'stderr' }]);
       } else if (msg.type === 'exit') {
         setExitCode(msg.code);
         setIsRunning(false);
@@ -298,11 +303,14 @@ function App() {
     socket.onerror = (error) => {
       console.error("WebSocket Connection Error:", error);
       const ts = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      setOutput(prev => [...prev, {
-        timestamp: ts,
-        text: `\u26a0 WebSocket error: Could not connect to backend at ${protocol}//${host}/ws.\n1. Make sure the backend is running.\n2. Ensure your phone and PC are on the same Wi-Fi.\n3. Check if Windows Firewall is blocking port 8000.`,
-        type: 'stderr'
-      }]);
+      setOutput(prev => {
+        const newOut = [...prev, {
+          timestamp: ts,
+          text: `\u26a0 WebSocket error: Could not connect to backend.\n1. Make sure the backend is running.\n2. Check your connection.`,
+          type: 'stderr'
+        }];
+        return newOut.slice(-500);
+      });
       setIsConnecting(false);
       setIsRunning(false);
       wsRef.current = null;
@@ -310,11 +318,8 @@ function App() {
 
     socket.onclose = () => {
       setIsConnecting(false);
-      // Only flip isRunning off if we weren't already stopped by an exit/error message
-      setIsRunning(prev => {
-        if (prev) return false;
-        return prev;
-      });
+      setIsRunning(false);
+      wsRef.current = null;
     };
   };
 
@@ -476,13 +481,13 @@ function App() {
                 className="icon-btn run-icon-btn"
                 onClick={runCode}
                 id="run-button"
-                title={isRunning ? "Stop Code" : "Run Code"}
+                title="Run Code"
                 style={{ 
-                  color: isRunning ? '#ef4444' : (isConnecting ? '#94a3b8' : '#eab308'),
-                  cursor: isConnecting ? 'not-allowed' : 'pointer',
-                  opacity: isConnecting ? 0.6 : 1
+                  color: (isRunning || isConnecting) ? '#94a3b8' : '#eab308',
+                  cursor: (isRunning || isConnecting) ? 'not-allowed' : 'pointer',
+                  opacity: (isRunning || isConnecting) ? 0.6 : 1
                 }}
-                disabled={isConnecting}
+                disabled={isRunning || isConnecting}
               >
                 {isConnecting ? (
                   <>
@@ -497,11 +502,31 @@ function App() {
                   </>
                 ) : (
                   <>
-                    {isRunning ? <Square size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
-                    <span className="run-btn-text">{isRunning ? "Stop" : "Run"}</span>
+                    <Play size={18} fill="currentColor" />
+                    <span className="run-btn-text">Run</span>
                   </>
                 )}
               </button>
+
+              {isRunning && (
+                <button
+                  className="icon-btn stop-icon-btn"
+                  onClick={stopCode}
+                  title="Stop Code"
+                  style={{ 
+                    color: '#ef4444',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    gap: '6px',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  <Square size={18} fill="currentColor" />
+                  <span className="run-btn-text">Stop</span>
+                </button>
+              )}
             </div>
           </div>
 
