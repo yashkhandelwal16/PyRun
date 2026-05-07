@@ -537,8 +537,82 @@ function App() {
               value={activeFile.content}
               theme={isDarkMode ? "vs-dark" : "light"}
               onChange={(value) => updateActiveFileCode(value || '')}
-              onMount={(editor) => {
+              onMount={(editor, monaco) => {
                 editorRef.current = editor;
+
+                // Custom Enter key handler for Python-style smart indentation
+                // This replaces Monaco's autoIndent while keeping it 'none' to avoid mobile paste issues
+                editor.onKeyDown((e) => {
+                  if (e.keyCode === monaco.KeyCode.Enter) {
+                    const model = editor.getModel();
+                    const position = editor.getPosition();
+                    if (!model || !position) return;
+
+                    const lineContent = model.getLineContent(position.lineNumber);
+                    const indentation = lineContent.match(/^\s*/)?.[0] || "";
+                    
+                    // Determine if we need an extra level of indentation (Python colon rule)
+                    let extraIndent = "";
+                    if (lineContent.trim().endsWith(':')) {
+                      extraIndent = "    "; // Use 4 spaces for Python
+                    }
+
+                    const textToInsert = "\n" + indentation + extraIndent;
+
+                    // Execute edit and move cursor manually
+                    editor.executeEdits('smart-indent', [{
+                      range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+                      text: textToInsert,
+                      forceMoveMarkers: true
+                    }]);
+
+                    // Update cursor position to the end of the new indentation
+                    editor.setPosition({
+                      lineNumber: position.lineNumber + 1,
+                      column: indentation.length + extraIndent.length + 1
+                    });
+
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }
+                });
+
+                // Custom Paste Normalization System (Requirement 7)
+                editor.onDidPaste((e) => {
+                  const model = editor.getModel();
+                  if (!model) return;
+
+                  const range = e.range;
+                  const originalText = model.getValueInRange(range);
+                  
+                  // 1. Convert tabs to 4 spaces (Requirement 8)
+                  let processedText = originalText.replace(/\t/g, '    ');
+
+                  // 2. Prevent duplicate indentation on pasted code (Requirement 9)
+                  // Check if we are pasting into a line that only has leading whitespace
+                  const lineBefore = model.getLineContent(range.startLineNumber).substring(0, range.startColumn - 1);
+                  
+                  if (/^\s*$/.test(lineBefore)) {
+                    const existingIndent = lineBefore;
+                    const pastedIndentMatch = processedText.match(/^ +/);
+                    
+                    if (pastedIndentMatch) {
+                      const pastedIndent = pastedIndentMatch[0];
+                      // If the pasted text repeats the existing indentation, trim the overlap
+                      if (pastedIndent.startsWith(existingIndent) && existingIndent.length > 0) {
+                        processedText = processedText.substring(existingIndent.length);
+                      }
+                    }
+                  }
+
+                  if (processedText !== originalText) {
+                    editor.executeEdits('paste-normalization', [{
+                      range: range,
+                      text: processedText,
+                      forceMoveMarkers: true
+                    }]);
+                  }
+                });
               }}
               options={{
                 fontSize: editorFontSize,
