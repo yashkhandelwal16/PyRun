@@ -280,7 +280,7 @@ function App() {
 
       if (msg.type === 'output' || msg.type === 'error') {
         setOutput(prev => {
-          const type = msg.type === 'error' ? 'stderr' : 'stdout';
+          const type: 'stdout' | 'stderr' = msg.type === 'error' ? 'stderr' : 'stdout';
           const lines = msg.data.split('\n');
           let newOut = [...prev];
           
@@ -309,7 +309,7 @@ function App() {
       console.error("WebSocket Connection Error:", error);
       const ts = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
       setOutput(prev => {
-        const newOut = [...prev, {
+        const newOut: OutputLine[] = [...prev, {
           timestamp: ts,
           text: `\u26a0 WebSocket error: Could not connect to backend.\n1. Make sure the backend is running.\n2. Check your connection.`,
           type: 'stderr'
