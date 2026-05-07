@@ -34,6 +34,7 @@ def format_error_message(err_str: str, language: str) -> str:
         if "error: package" in err_str and "does not exist" in err_str:
             match = re.search(r"error: package (.*?) does not exist", err_str)
             if match:
+                return f"\n⚠️ Required dependency is not available in this environment\n📦 Missing package: {match.group(1)}\n💡 Suggestion: Run locally or install dependencies\n\nOriginal Error:\n{err_str}"
     return err_str
 
 # Global state for scalability
