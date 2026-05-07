@@ -112,6 +112,7 @@ function App() {
   const containerRef = useRef<HTMLDivElement>(null);
   const stdinRef = useRef<HTMLInputElement>(null);
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
+  const lastRunTimeRef = useRef<number>(0);
 
   const activeFile = files.find(f => f.id === activeFileId) || files[0];
 
@@ -237,6 +238,10 @@ function App() {
   }, []);
 
   const runCode = () => {
+    const now = Date.now();
+    if (now - lastRunTimeRef.current < 1000) return; // 1s cooldown
+    lastRunTimeRef.current = now;
+
     if (isConnecting) return; // Ignore clicks while connecting
 
     if (isRunning) {
