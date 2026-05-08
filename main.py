@@ -193,9 +193,8 @@ async def websocket_endpoint(websocket: WebSocket):
                         await websocket.send_json({"type": "output", "data": "⏳ Server at capacity. Waiting for an execution slot...\n"})
 
                     async with execution_semaphore:
-                        # Timeout and Output Limit Logic
-                        EXECUTION_TIMEOUT = 5.0
-                        MAX_OUTPUT_BYTES = 100 * 1024
+                        # Output Limit Logic (Significantly increased for safety but practically removed)
+                        MAX_OUTPUT_BYTES = 100 * 1024 * 1024 # 100MB
                         output_bytes_count = 0
                         execution_terminated = False
 
@@ -221,14 +220,15 @@ async def websocket_endpoint(websocket: WebSocket):
                                         break
                                     
                                     output_bytes_count += len(data)
-                                    if output_bytes_count > MAX_OUTPUT_BYTES:
-                                        execution_terminated = True
-                                        if process.returncode is None:
-                                            try:
-                                                process.kill()
-                                            except: pass
-                                        await websocket.send_json({"type": "error", "data": "\n\n⚠️ Execution halted: Output limit exceeded (too much data printed)\n"})
-                                        break
+                                    # Output limit check removed for "permanent" execution
+                                    # if output_bytes_count > MAX_OUTPUT_BYTES:
+                                    #     execution_terminated = True
+                                    #     if process.returncode is None:
+                                    #         try:
+                                    #             process.kill()
+                                    #         except: pass
+                                    #     await websocket.send_json({"type": "error", "data": "\n\n⚠️ Execution halted: Output limit exceeded (too much data printed)\n"})
+                                    #     break
                                         
                                     await websocket.send_json({"type": stream_type, "data": data.decode('utf-8', errors='replace')})
                             except Exception:
@@ -243,14 +243,14 @@ async def websocket_endpoint(websocket: WebSocket):
                                         break
                                     
                                     output_bytes_count += len(chunk)
-                                    if output_bytes_count > MAX_OUTPUT_BYTES:
-                                        execution_terminated = True
-                                        if process.returncode is None:
-                                            try:
-                                                process.kill()
-                                            except: pass
-                                        await websocket.send_json({"type": "error", "data": "\n\n⚠️ Execution halted: Output limit exceeded\n"})
-                                        break
+                                    # if output_bytes_count > MAX_OUTPUT_BYTES:
+                                    #     execution_terminated = True
+                                    #     if process.returncode is None:
+                                    #         try:
+                                    #             process.kill()
+                                    #         except: pass
+                                    #     await websocket.send_json({"type": "error", "data": "\n\n⚠️ Execution halted: Output limit exceeded\n"})
+                                    #     break
 
                                     err_str = chunk.decode('utf-8', errors='replace')
                                     formatted_err = format_error_message(err_str, language)
@@ -258,28 +258,20 @@ async def websocket_endpoint(websocket: WebSocket):
                             except Exception:
                                 pass
 
-                        async def timeout_watcher():
-                            nonlocal execution_terminated
-                            await asyncio.sleep(EXECUTION_TIMEOUT)
-                            if process.returncode is None:
-                                execution_terminated = True
-                                try:
-                                    process.kill()
-                                except: pass
-                                await websocket.send_json({"type": "error", "data": "\n\n⚠️ Execution halted: Time limit exceeded (5s)\n"})
+                        # Timeout watcher removed for permanent execution
 
                         # Start communication tasks
                         stdout_task = asyncio.create_task(read_stream(process.stdout, "output"))
                         stderr_task = asyncio.create_task(read_stderr())
-                        timeout_task = asyncio.create_task(timeout_watcher())
+                        # timeout_task = asyncio.create_task(timeout_watcher())
 
                         # Wait for process to finish while holding semaphore slot
                         code = await process.wait()
                         
                         # Cleanup tasks
                         execution_terminated = True
-                        if not timeout_task.done():
-                            timeout_task.cancel()
+                        # if not timeout_task.done():
+                        #     timeout_task.cancel()
                         
                         await websocket.send_json({"type": "exit", "code": code})
                         

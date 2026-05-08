@@ -284,6 +284,15 @@
   background: rgba(234, 179, 8, 0.2);
 }
 
+.run-icon-btn.stop-mode {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.run-icon-btn.stop-mode:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
 /* Editor Tabs */
 .editor-tabs {
   padding: 0 24px;

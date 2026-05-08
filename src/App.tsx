@@ -483,16 +483,22 @@ function App() {
               <button className="icon-btn" onClick={copyCode} title="Copy Code"><Copy size={18} /></button>
               <button className="icon-btn" onClick={downloadCode} title="Download Code"><Download size={18} /></button>
               <button
-                className="icon-btn run-icon-btn"
+                className={`icon-btn run-icon-btn ${isRunning ? 'stop-mode' : ''}`}
                 onClick={runCode}
                 id="run-button"
-                title="Run Code"
+                title={isRunning ? "Stop Code" : "Run Code"}
                 style={{ 
-                  color: (isRunning || isConnecting) ? '#94a3b8' : '#eab308',
-                  cursor: (isRunning || isConnecting) ? 'not-allowed' : 'pointer',
-                  opacity: (isRunning || isConnecting) ? 0.6 : 1
+                  color: isConnecting ? '#94a3b8' : isRunning ? '#ef4444' : '#eab308',
+                  background: isRunning ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+                  cursor: isConnecting ? 'not-allowed' : 'pointer',
+                  opacity: isConnecting ? 0.6 : 1,
+                  padding: isRunning ? '8px 16px' : '8px',
+                  borderRadius: isRunning ? '8px' : '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: isRunning ? '6px' : '0'
                 }}
-                disabled={isRunning || isConnecting}
+                disabled={isConnecting}
               >
                 {isConnecting ? (
                   <>
@@ -505,6 +511,11 @@ function App() {
                     </motion.div>
                     <span className="run-btn-text">Connecting...</span>
                   </>
+                ) : isRunning ? (
+                  <>
+                    <Square size={18} fill="currentColor" />
+                    <span className="run-btn-text">Stop</span>
+                  </>
                 ) : (
                   <>
                     <Play size={18} fill="currentColor" />
@@ -513,25 +524,7 @@ function App() {
                 )}
               </button>
 
-              {isRunning && (
-                <button
-                  className="icon-btn stop-icon-btn"
-                  onClick={stopCode}
-                  title="Stop Code"
-                  style={{ 
-                    color: '#ef4444',
-                    background: 'rgba(239, 68, 68, 0.1)',
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    gap: '6px',
-                    display: 'flex',
-                    alignItems: 'center'
-                  }}
-                >
-                  <Square size={18} fill="currentColor" />
-                  <span className="run-btn-text">Stop</span>
-                </button>
-              )}
+
             </div>
           </div>
 
