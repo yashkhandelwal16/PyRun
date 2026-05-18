@@ -65,7 +65,7 @@ interface FileTab {
 }
 
 function App() {
-  const [selectedLang, setSelectedLang] = useState<Language>(PYTHON);
+  const [selectedLang] = useState<Language>(PYTHON);
   const [files, setFiles] = useState<FileTab[]>([
     { id: 'main', name: `main.${PYTHON.ext}`, content: PYTHON.snippet, isMain: true }
   ]);
