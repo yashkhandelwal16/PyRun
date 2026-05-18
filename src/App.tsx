@@ -407,7 +407,7 @@ function App() {
           <div className="lang-badge-selector">
             <span className="lang-emoji">{selectedLang.emoji}</span>
             <div className="lang-info">
-              <span className="lang-name-static" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{selectedLang.name}</span>
+              <span className="lang-name-static" style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>{selectedLang.name}</span>
               <span className="lang-version">{selectedLang.version}</span>
             </div>
           </div>
