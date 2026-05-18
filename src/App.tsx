@@ -49,27 +49,7 @@ app = Engine("Compiler")
 app.execute()`,
 };
 
-const CPP: Language = {
-  id: 'cpp',
-  name: 'C++',
-  version: 'GCC 14.2.0',
-  pistonId: '101',
-  emoji: '🚀',
-  ext: 'cpp',
-  snippet: `#include <iostream>
-#include <string>
 
-int main() {
-    std::string name;
-    std::cout << "Enter your name: " << std::flush;
-    if (std::getline(std::cin, name)) {
-        std::cout << "Hello, " << name << "!" << std::endl;
-    }
-    return 0;
-}`,
-};
-
-const LANGUAGES: Language[] = [PYTHON, CPP];
 
 interface OutputLine {
   timestamp: string;
@@ -127,12 +107,7 @@ function App() {
 
   const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
-  const handleLanguageChange = (langId: string) => {
-    const lang = LANGUAGES.find(l => l.id === langId);
-    if (!lang) return;
-    setSelectedLang(lang);
-    setFiles(prev => prev.map(f => f.isMain ? { ...f, name: `main.${lang.ext}`, content: lang.snippet } : f));
-  };
+
 
   const updateActiveFileCode = (value: string) => {
     setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: value } : f));
@@ -429,19 +404,10 @@ function App() {
         </div>
         <div className="header-right">
           {/* Static Python badge — no dropdown needed */}
-          {/* Language Selector styled as a Badge */}
           <div className="lang-badge-selector">
             <span className="lang-emoji">{selectedLang.emoji}</span>
             <div className="lang-info">
-              <select 
-                className="lang-select-ghost" 
-                value={selectedLang.id}
-                onChange={(e) => handleLanguageChange(e.target.value)}
-              >
-                {LANGUAGES.map(lang => (
-                  <option key={lang.id} value={lang.id}>{lang.name}</option>
-                ))}
-              </select>
+              <span className="lang-name-static" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{selectedLang.name}</span>
               <span className="lang-version">{selectedLang.version}</span>
             </div>
           </div>
@@ -556,7 +522,7 @@ function App() {
           <div className="editor-wrapper">
             <Editor
               height="100%"
-              language={selectedLang.id === 'cpp' ? 'cpp' : selectedLang.id}
+              language={selectedLang.id}
               value={activeFile.content}
               theme={isDarkMode ? "vs-dark" : "light"}
               onChange={(value) => updateActiveFileCode(value || '')}
